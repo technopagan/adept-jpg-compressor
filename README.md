@@ -3,7 +3,11 @@ Adept - the adaptive JPG Compressor
 
 ## Quick Start
 
-coming after taking in the latest pull request
+* Remember: Adept is a **Linux commandline tool**
+* Make sure you have [ImageMagick](http://www.imagemagick.org/), [Jpegoptim](https://github.com/tjko/jpegoptim) and [JPEGrescan](https://github.com/kud/jpegrescan) installed & useable. All but JPEGrescan are available in all major Linux distributions.
+* Fetch a copy of [adept.sh](https://raw.github.com/technopagan/adept-jpg-compressor/master/adept.sh) and place it somewhere you deem a good place for 3rd party shellscripts, e.g. "/usr/local/bin". Make sure the location is in the PATH of the user(s) who will run adept.sh and ensure that the script is executable (chmod -x).
+* Congratulations! You can now run "bash adept.sh /path/to/image.jpg" to compress JPEGs 3-5% more succcessfully. 
+
 
 ## Introduction
 
@@ -83,9 +87,7 @@ Copyright (c) 2013, Tobias Baldauf
 All rights reserved.
 
 Mail: [kontakt@tobias-baldauf.de](mailto:kontakt@tobias-baldauf.de)
-
 Web: [who.tobias.is](http://who.tobias.is/)
-
 Twitter: [@tbaldauf](http://twitter.com/tbaldauf)
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

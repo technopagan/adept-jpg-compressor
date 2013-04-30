@@ -53,7 +53,7 @@ Adept reduces the image filesize by 10.12%! This is possible thanks to the large
 
 **Adobe Fireworks + @pornelski's ImageOptim - 69,1 kB**
 [![Satchel Adobe Fireworks and ImageOptim](images/05-04-satchel-Adobe-Fireworks-plus-ImageOptim-identical-quality-settings.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/05-04-satchel-Adobe-Fireworks-plus-ImageOptim-identical-quality-settings.jpg)
-Adobe Fireworks + ImageOptim save 9.19% of filesize. While this makes the resulting image a little than the version created by Adept, one has to consider that the Adobe version handles the noise in the off-focus background more gracefully, therefore again taking the crown of balance between filesize and visual quality. Once more, it's sadly not automatable and wouldn't scale well.
+Adobe Fireworks + ImageOptim save 9.19% of filesize. While this makes the resulting image a little larger than the version created by Adept, one has to consider that the Adobe version handles the noise in the off-focus background more gracefully, therefore again taking the crown of balance between filesize and visual quality. Once more, it's sadly not automatable and wouldn't scale well.
 
 **JPEGMini - 56,7 kB**
 [![Beach JPEGMini](images/05-05-satchel-jpegmini.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/05-05-satchel-jpegmini.jpg)
@@ -62,7 +62,7 @@ JPEGMini achieves 25.48% smaller filessize on the leather satchel image. Again, 
 ## Known Issues
 
  * Currently, Adept handles images of large dimensions poorly. While it compresses an image of e.g. 500x400 pixels very well (gain > 10%) and maintains good visual quality, it actually creates an even larger output image than the original when dealing with sizes of >1.5 megapixels. So while you can already deploy Adept for smaller website images today, do not run it on high resolution images yet. This is an aspect of Adept that will be addressed ASAP.
- * Images with high noise ratios, such as the famous [Lenna](https://en.wikipedia.org/wiki/Lenna), the de facto standard test image for image processing algorithms, will not compress well with Adept without configurating the threshold value. Otherwise, too few areas of the image will become compressed for the filesize to be reduced significantly. An automagic pre-assessment of incoming images to dynamically change the threshold value is already in [Adept's Issue Tracker](https://github.com/technopagan/adept-jpg-compressor/issues)
+ * Images with high noise ratios, such as the famous [Lenna](https://en.wikipedia.org/wiki/Lenna), the de facto standard test image for image processing algorithms, will not compress well with Adept without configurating the threshold value. Otherwise, too few areas of the image will become compressed for the filesize to be reduced significantly. An automagic pre-assessment of incoming images to dynamically change the threshold value is already in [Adept's Issue Tracker](https://github.com/technopagan/adept-jpg-compressor/issues).
  * Runtime for Adept greatly changes with input image size, tile-size and available hardware. While small images of e.g. 500x400 take only 1s to process successfully, running Adept on high-megapixel images will take >20s - combined with the lack of success on such large images (see above).
 
 ## Contributors
@@ -83,7 +83,9 @@ Copyright (c) 2013, Tobias Baldauf
 All rights reserved.
 
 Mail: [kontakt@tobias-baldauf.de](mailto:kontakt@tobias-baldauf.de)
+
 Web: [who.tobias.is](http://who.tobias.is/)
+
 Twitter: [@tbaldauf](http://twitter.com/tbaldauf)
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

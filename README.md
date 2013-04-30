@@ -15,8 +15,10 @@ Note that adaptive JPEG compression is already implemented in tools such as Adob
 
 ## Image Demos
 
+### On The Beach
+
 **GIMP, Save For Web Plugin, Quality 85 - 112,7 kB**
-[![Beach GIMp SaveForWeb q85](images/01-01-beach-gimp-saveforweb-q85.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-01-beach-gimp-saveforweb-q85.jpg)
+[![Beach GIMP SaveForWeb q85](images/01-01-beach-gimp-saveforweb-q85.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-01-beach-gimp-saveforweb-q85.jpg)
 GIMP's Save for Web, q85, optimized, Basline & stripped EXIF is the base configuration for all of our test images.
 
 **JPEGOptim --max=85 -t -v --strip-all + lossless JPEGRescan - 110,4 kB**
@@ -28,12 +30,26 @@ Using popular commandline tools for JPG compression, we can achieve a 2.04% smal
 With Adept, the filesize is reduced by 4.88%. Slight artefacts can be perceived when zooming in closely on the horizon's blue gradiant because Adept identified the sky as an area of low complexity and thus compressed it more heavily. No artifacts are present at any of the key areas of the image, however (parasol, canvas chair, horizon border, sea-to-sand border etc). 
 
 **Adobe Fireworks + @pornelski's ImageOptim - 106,9 kB**
-[![Beach Adept](images/01-04-beach-Adobe-Fireworks-plus-ImageOptim-identical-quality-settings.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-04-beach-Adobe-Fireworks-plus-ImageOptim-identical-quality-settings.jpg)
+[![Beach Adobe Fireworks and ImageOptim](images/01-04-beach-Adobe-Fireworks-plus-ImageOptim-identical-quality-settings.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-04-beach-Adobe-Fireworks-plus-ImageOptim-identical-quality-settings.jpg)
 The commercial Adobe suite, combined with postprocessing by [ImageOptim](http://imageoptim.com/) by [@pornelski](https://twitter.com/pornelski), both set to identical quality settings as the other tools, produces the best result: 5.01% filesize reduction while the horizon's blue gradiant features fewer compression artefacts. Impressive! Sadly, this is not automatable at scale.
 
 **JPEGMini - 98,4 kB**
-[![Beach Adept](images/01-05-beach-jpegmini.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-05-beach-jpegmini.jpg)
+[![Beach JPEGMini](images/01-05-beach-jpegmini.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-05-beach-jpegmini.jpg)
 The big noise of 2011. JPEGMini claimed they reinvented JPEG compression while not breaking the ISO standard. And Yes, the image created by JPEGMini features a whoppin filesize reduction of 12.68%. Sadly, it is also the image with the most visible compression artefacts, also around the key areas of the image. There also is a severe loss of detail on the waves as well as the sand.
+
+### The Satchel
+
+**GIMP, Save For Web Plugin, Quality 85 - 76,1 kB**
+[![Satchel GIMP SaveForWeb q85](images/05-01-satchel-gimp-saveforweb-q85.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/05-01-satchel-gimp-saveforweb-q85.jpg)
+Again, GIMP Save for Web, q85, optimized, Basline & stripped EXIF. This image was chosen specifically for [@mikebrittain](https://twitter.com/mikebrittain) of [Etsy's Engineering Team](https://twitter.com/mikebrittain) because they are [batch-processing tons of leather satchel images](http://codeascraft.etsy.com/2010/07/09/batch-processing-millions-of-images/) per day. ;)
+
+**JPEGOptim --max=85 -t -v --strip-all + lossless JPEGRescan - 75,5 kB**
+[![Satchel JPEGOptim plus JPEGRescan](images/05-02-satchel-jpegoptim-q85-stripall-plus-jpegrescan.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/05-02-satchel-jpegoptim-q85-stripall-plus-jpegrescan.jpg)
+Using popular commandline tools, we achieve only a 0.78% smaller filesize without perceivable loss in quality.
+
+**Adept - 68,4 kB**
+[![Satchel Adept](images/05-03-satchel_adept_compress.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/05-03-satchel_adept_compress.jpg)
+Adept reduces the image filesize by 10.12%! This is possible thanks to the large dark areas on the lefthand side of the image. The only visible compression artefacts caused by Adept are located in the bright patch of out-of-focus wall far behind the satchel.
 
 ## Known Issues
 

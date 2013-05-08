@@ -74,7 +74,11 @@ VERBOSEMODE=0
 # Deafult: 0.175% - only raise in small steps, e.g. 0.333% or 0.5%
 BLACKWHITETHRESHOLD='0.333%'
 
-# JPEG quality setting for areas of the image deemed suitable for high compression
+# Default JPG quality setting, either inherited or defined as an integer of 0-100
+# Default: inherit
+DEFAULTCOMPRESSIONRATE="inherit"
+
+# JPEG quality setting for areas of the image deemed suitable for high compression in an integer of 0-100
 # Default: 66
 HIGHCOMPRESSIONRATE="66"
 
@@ -107,6 +111,13 @@ fi
 CLEANFILENAME=${FILE%.jpg}
 
 
+# If $DEFAULTCOMPRESSIONRATE is set to "inherit", discover the input JPG quality 
+
+if [ "$DEFAULTCOMPRESSIONRATE" == "inherit" ] ; then
+	DEFAULTCOMPRESSIONRATE=`identify -format "%Q" "${1}"`
+fi
+
+
 # Slice the input image into equally sized tiles
 
 if (( VERBOSEMODE )); then
@@ -114,7 +125,7 @@ if (( VERBOSEMODE )); then
 	read -p "Press [Enter] to continue"
 fi
 
-convert "$FILE" -strip -quality 85 -crop "${TILEWIDTHANDHEIGHT}"x"${TILEWIDTHANDHEIGHT}" -set filename:tile "%[fx:page.y/${TILEWIDTHANDHEIGHT}+1]x%[fx:page.x/${TILEWIDTHANDHEIGHT}+1]" +repage +adjoin "${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_%[filename:tile].jpg"
+convert "$FILE" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -crop "${TILEWIDTHANDHEIGHT}"x"${TILEWIDTHANDHEIGHT}" -set filename:tile "%[fx:page.y/${TILEWIDTHANDHEIGHT}+1]x%[fx:page.x/${TILEWIDTHANDHEIGHT}+1]" +repage +adjoin "${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_%[filename:tile].jpg"
 
 
 # Fill an array with the paths+filenames of all the tiles we have just sliced so that we can work on each of them
@@ -162,7 +173,7 @@ do
 	fi	
 	
 	# If the gray channel median is below a defined threshold, the visible area in the current tile is very likely simple & rather monotonous and can safely be exposed to a higher compression rate 
-	# Untouched JPGs simply stay at the 85% quality setting, which is a sufficiantly safe setting in order to prevent artefacts
+	# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
 	if (( $(echo "$BWMEDIAN < 0.825" | bc -l) )); then
 		
 		if (( VERBOSEMODE )); then
@@ -235,7 +246,7 @@ if (( VERBOSEMODE )); then
 	read -p "Press [Enter] to continue"
 fi
 
-montage -strip -quality 85 -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(ls "${TILESTORAGEPATH}${CLEANFILENAME##*/}"_tile_*.jpg | sort -V) "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".jpg
+montage -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(ls "${TILESTORAGEPATH}${CLEANFILENAME##*/}"_tile_*.jpg | sort -V) "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".jpg
 
 
 # During montage reassembly, the resulting image received bytes of padding due to the way the JPEG compression algorithm works on tiles not sized as a multiple of 8   

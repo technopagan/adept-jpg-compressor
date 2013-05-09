@@ -17,6 +17,13 @@ This script adaptively alters the compression level for areas within JPEGs to ac
 
 Note that adaptive JPEG compression is already implemented in tools such as Adobe Photoshop and Fireworks. This script brings adaptive JPEG compression to the shell using common console tools already installed on many machines dealing with automated image optimization. The script is save to use as ELA, the [Error Level Analysis Algorithm](http://fotoforensics.com/tutorial-ela.php), does [not flag the images as tainted](http://fotoforensics.com/analysis.php?id=9955933a9ea6774a0e58303db1ac104af8dafd41.107232).
 
+## Adept Workflow
+
+[![Adept Workflow Diagram](images/adept-workflow.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/adept-workflow.jpg)
+Adept works by splitting up the input image into tiles of equal size and then running the [Sobel Edge Detection algorithm](http://en.wikipedia.org/wiki/Sobel_operator) on them. The Sobel tiles are then reduced to two colors to make the black & white pixels in each tile easily countable. 
+
+The ratio of black & white pixels in each tile is the decisive factor for exposing a tile to default or higher compression rates. After all tiles are processed and possibly more heavily compressed in this manner, they are reassembled into the output image.
+
 ## Image Demos
 
 ### On The Beach

@@ -250,7 +250,7 @@ montage -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${T
 
 
 # During montage reassembly, the resulting image received bytes of padding due to the way the JPEG compression algorithm works on tiles not sized as a multiple of 8   
-# So we run jpegrescan on the final image to losslessly remove this padding
+# So we run jpegrescan on the final image to losslessly remove this padding and make the output JPG progressive
 
 if (( VERBOSEMODE )); then
 	printf "\nRunning jpegrescan to losslessly remove bytesize padding, caused by processing cutoff tiles not sized as a multiple of 8.\n"

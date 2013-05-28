@@ -257,7 +257,7 @@ if (( VERBOSEMODE )); then
 	read -p "Press [Enter] to continue"
 fi
 
-jpegrescan "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".jpg "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".jpg  >/dev/null 2>/dev/null
+jpegrescan -s "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".jpg "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".jpg  >/dev/null 2>/dev/null
 
 
 # Cleanup the temporary tiles

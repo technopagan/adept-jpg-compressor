@@ -125,7 +125,8 @@ fi
 sed "$SAMPLESIZE"q image_urls_random_order.txt > image_urls_sample.txt
 
 # Fetch each image referenced by url in the sample
-# using a subshell for wget so downloads run in paralell  
+# using a subshell for wget so downloads run in paralell
+# ToDo: Add HEAD request pre-checks to only download valid images  
 while read -r line
 do
 	(curl -L -o ${line##*/} "$line")

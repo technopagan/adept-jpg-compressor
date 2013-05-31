@@ -4,6 +4,8 @@
 #
 # Image Analysis Script 0.1
 #
+# # Usage: bash analysis.sh /path/to/image-sample/folder
+#
 ###############################################################################
 #
 # Tools that need to be pre-installed:
@@ -47,20 +49,21 @@
 ###############################################################################
 
 # Define 2 methods to compare to each other
-# Currently possible values: jpegrescan, jpegtran, jpegoptim
-METHODA="jpegrescan"
-METHODB="jpegoptim"
+# Currently possible values: lossless_jpegrescan, lossless_jpegtran, lossy_jpegoptim
+METHODA="lossless_jpegrescan"
+METHODB="lossless_jpegtran"
 
 # Define which calculation shall be performed after the methods are done
 # Currently possible values: calculate_filesize_gain
 EVALUATION="calculate_filesize_gain"
 
 # The toolbelt of currently available methods
+# The Prefixes "lossless" / "lossy" should prevent comparing apples & oranges
 # It does not require configuration, but it can take additional methods
 declare -A METHODS=(
-	[jpegtran]='jpegtran -copy none -optimize -progressive -outfile ${SOURCEDIR}"jpegtran_"${TIMESTAMP}/${file##*/} ${SOURCEDIR}${file##*/}'
-	[jpegrescan]='jpegrescan -q -s ${SOURCEDIR}${file##*/} ${SOURCEDIR}"jpegrescan_"${TIMESTAMP}/${file##*/}'
-	[jpegoptim]='jpegoptim -q -f -p -m85 --strip-all -d ${SOURCEDIR}"jpegoptim_"${TIMESTAMP} ${SOURCEDIR}${file##*/}'
+	[lossless_jpegtran]='jpegtran -copy none -optimize -progressive -outfile ${SOURCEDIR}"lossless_jpegtran_"${TIMESTAMP}/${file##*/} ${SOURCEDIR}${file##*/}'
+	[lossless_jpegrescan]='jpegrescan -q -s ${SOURCEDIR}${file##*/} ${SOURCEDIR}"lossless_jpegrescan_"${TIMESTAMP}/${file##*/}'
+	[lossy_jpegoptim]='jpegoptim -q -f -p -m85 --strip-all -d ${SOURCEDIR}"lossy_jpegoptim_"${TIMESTAMP} ${SOURCEDIR}${file##*/}'
 )
 
 

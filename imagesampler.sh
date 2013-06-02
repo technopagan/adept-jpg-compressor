@@ -7,6 +7,20 @@
 #
 # Usage: bash imageanalysis.sh http://www.archive.org/download/httparchive_downloads/httparchive_May_15_2013_requests.csv.gz
 # 
+# Required disk space:
+# As the current unpacked CSV from HTTP Archive takes up ~25GB and this script
+# extracts subsets of >2GB size from it and the sampled images themselves  
+# take up several GBs of diskspace (depening on selected sample size), it is
+# advised that you run this script only on a device with >32GB of available
+# diskspace. 
+# 
+# A Word Of Caution:
+# As the Internet contains adult media, it is very likely that images
+# sampled by this script have pornographic content. Please be advised if  
+# downloading such contents via this script causes problems with employers,  
+# ISP or Government.
+# 
+# 
 ###############################################################################
 # Tools that need to be pre-installed:
 #

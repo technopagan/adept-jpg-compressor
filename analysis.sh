@@ -4,7 +4,7 @@
 #
 # Image Analysis Script 0.1
 #
-# # Usage: bash analysis.sh /path/to/image-sample/folder
+# # Usage: bash analysis.sh /path/to/image-sample/folder/
 #
 ###############################################################################
 #
@@ -48,23 +48,52 @@
 # Configuration
 ###############################################################################
 
-# Define 2 methods to compare to each other
-# Currently possible values: lossless_jpegrescan, lossless_jpegtran, lossy_jpegoptim
-METHODA="lossless_jpegrescan"
-METHODB="lossless_jpegtran"
+# Master switch!
+# Set this to "analyse" to only run an analysis function on an existing sample
+# or set to "compare" to run comparison tests which will result in processed
+# data sets. Make sure that you select your desired evalution accordingly 
+# Possible values: compare, analyse
+PROCESS="analyse"
 
-# Define which calculation shall be performed after the methods are done
-# Currently possible values: calculate_filesize_gain
-EVALUATION="calculate_filesize_gain"
+# Define 2 methods to compare to each other
+# This is only used if $PROCESS is set to "compare"
+# Currently possible values, sorted by type: 
+#
+# lossless_jpegrescan
+# lossless_jpegtran
+#
+# lossy_jpegoptim
+#
+COMPARE_METHODA="lossless_jpegrescan"
+COMPARE_METHODB="lossless_jpegtran"
 
 # The toolbelt of currently available methods
 # The Prefixes "lossless" / "lossy" should prevent comparing apples & oranges
-# It does not require configuration, but it can take additional methods
+# It does NOT REQUIRE configuration, but you can add more methods
 declare -A METHODS=(
 	[lossless_jpegtran]='jpegtran -copy none -optimize -progressive -outfile ${SOURCEDIR}"lossless_jpegtran_"${TIMESTAMP}/${file##*/} ${SOURCEDIR}${file##*/}'
 	[lossless_jpegrescan]='jpegrescan -q -s ${SOURCEDIR}${file##*/} ${SOURCEDIR}"lossless_jpegrescan_"${TIMESTAMP}/${file##*/}'
 	[lossy_jpegoptim]='jpegoptim -q -f -p -m85 --strip-all -d ${SOURCEDIR}"lossy_jpegoptim_"${TIMESTAMP} ${SOURCEDIR}${file##*/}'
 )
+
+# Define which evaluation shall be performed
+# Please make sure that you have selected an "analyse_" evalution if
+# you set $PROCESS to "analyse" or vice versa for "compare"
+# Currently possible values, grouped by methods "compare" and "analyse" 
+#
+# compare_filesize_gain
+# 
+# analyse_quality
+#
+EVALUATION="analyse_quality"
+
+# Accept the source directory as a parameter
+# Does not require manual configuration if the script is invoked correctly
+SOURCEDIR="$1"
+
+# Set a human-readable timestamp for inclusion in directory names etc.
+# Does not require manual configuration unless you want to disable it
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 
 
@@ -74,8 +103,10 @@ declare -A METHODS=(
 
 # Wrapping the main program to allow defering function definitions
 main() {
-	create_output_folders
-	process_sample_with_selected_methods
+	if [ "$PROCESS" == "compare" ] ; then
+		create_output_folders
+		process_sample_with_selected_methods
+	fi
 	${EVALUATION}
 }
 
@@ -87,29 +118,25 @@ main() {
 
 # Create seperate output folders for methods A+B for comparison
 function create_output_folders {
-	# Accept the source directory as a parameter
-	SOURCEDIR="$1"
-	# Set a human-readable timestamp
-	TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 	# Create the directories to store results in, labeled by method + timestamp
-	DIRECTORYA=${SOURCEDIR}${METHODA}"_"${TIMESTAMP}
-	DIRECTORYB=${SOURCEDIR}${METHODB}"_"${TIMESTAMP}
+	DIRECTORYA=${SOURCEDIR}${COMPARE_METHODA}"_"${TIMESTAMP}
+	DIRECTORYB=${SOURCEDIR}${COMPARE_METHODB}"_"${TIMESTAMP}
 	mkdir ${DIRECTORYA} ${DIRECTORYB}
 }
 
 # Run the 2 user-selected methods on the sample
 function process_sample_with_selected_methods {
-	IMAGESTOPROCESS=($(find . -maxdepth 1 -iregex ".*.jpe*g"))
+	IMAGESTOPROCESS=($(find ${SOURCEDIR} -maxdepth 1 -iregex ".*.jpe*g"))
 	for((i=0;i<${#IMAGESTOPROCESS[@]};i++)); do
 		file="${IMAGESTOPROCESS[$i]}"
-		(eval "${METHODS[$METHODA]}")
-		(eval "${METHODS[$METHODB]}")
+		(eval "${METHODS[$COMPARE_METHODA]}")
+		(eval "${METHODS[$COMPARE_METHODB]}")
 		echo "Processed $((${i} + 1))/${#IMAGESTOPROCESS[@]} images ..."
 	done
 }
 
 # Evaluation of filesize gains by compression methods
-function calculate_filesize_gain {
+function compare_filesize_gain {
 	# Measure the filesize of each output directory
 	SAMPLEASIZE=$(find ${DIRECTORYA}/. -maxdepth 1 -iregex ".*.jpe*g" -print0 | du --files0-from=- -c | tail -n1  | awk {'print $1'})
 	SAMPLEBSIZE=$(find ${DIRECTORYB}/. -maxdepth 1 -iregex ".*.jpe*g" -print0 | du --files0-from=- -c | tail -n1  | awk {'print $1'})
@@ -119,12 +146,35 @@ function calculate_filesize_gain {
 	# Give appropriate human-readable output according to the result
 	if [ 1 -eq $(echo "${GAINEDPERCENTAGE} > 0" | bc) ]
 	then  
-		echo "Ouch! ${METHODA} is ${GAINEDPERCENTAGE}% less efficient than ${METHODB}"
+		echo "Ouch! ${COMPARE_METHODA} is ${GAINEDPERCENTAGE}% less efficient than ${COMPARE_METHODB}"
 	else
-		echo "Yeah! ${METHODA} is ${GAINEDPERCENTAGE#?}% more efficient than ${METHODB}"
+		echo "Yeah! ${COMPARE_METHODA} is ${GAINEDPERCENTAGE#?}% more efficient than ${COMPARE_METHODB}"
 	fi
 }
 
+# Read JPEG Quality settings via ImageMagick's identify and store results for Mean, Avarage, Min+Max in a file
+function analyse_quality {
+	IMAGESTOPROCESS=($(find ${SOURCEDIR} -maxdepth 1 -iregex ".*.jpe*g"))
+	for((i=0;i<${#IMAGESTOPROCESS[@]};i++)); do
+		file="${IMAGESTOPROCESS[$i]}"
+		# Retrieve the image quality as an integer via ImageMagick's identify
+		echo $(identify -format "%Q" "${IMAGESTOPROCESS[$i]}")
+	done >> ${SOURCEDIR}quality_${TIMESTAMP}.txt
+	# Sort the values by natural sort
+	sort -n -o ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt ${SOURCEDIR}quality_${TIMESTAMP}.txt
+	# Cleanup
+	rm ${SOURCEDIR}quality_${TIMESTAMP}.txt
+	# Calculate Mean
+	awk '{a[i++]=$1;} END {x=int((i+1)/2); if (x < (i+1)/2) print "Mean = "(a[x-1]+a[x])/2; else print "Mean = "a[x-1];}' ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
+	# Calculate Average
+	awk '{total+=$1; count+=1} END {print "Average = "total/count}' ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
+	# Find Minimum
+	awk '{if(min==""){min=max=$1}; if($1<min) {min=$1};} END {print "Minimal = "min}' ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
+	# Find Maximum
+	awk '{if(max==""){max=$1}; if($1>max) {max=$1};} END {print "Maximum = "max}' ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
+	# Cleanup
+	rm ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt
+}
 
 # Finally, launch the main program now that everything else is defined
 main

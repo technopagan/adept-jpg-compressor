@@ -2,7 +2,7 @@
 
 ###############################################################################
 #
-# Image Analysis Script 0.1
+# Image Analysis Script 0.2
 #
 # # Usage: bash analysis.sh /path/to/image-sample/folder/
 #
@@ -158,12 +158,14 @@ function analyse_quality {
 	for((i=0;i<${#IMAGESTOPROCESS[@]};i++)); do
 		file="${IMAGESTOPROCESS[$i]}"
 		# Retrieve the image quality as an integer via ImageMagick's identify
-		echo $(identify -format "%Q" "${IMAGESTOPROCESS[$i]}")
+		echo $(identify -quiet -format "%Q" "${IMAGESTOPROCESS[$i]}")
 	done >> ${SOURCEDIR}quality_${TIMESTAMP}.txt
 	# Sort the values by natural sort
 	sort -n -o ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt ${SOURCEDIR}quality_${TIMESTAMP}.txt
 	# Cleanup
 	rm ${SOURCEDIR}quality_${TIMESTAMP}.txt
+	# Retrieve final sample size
+	wc -l ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt | awk '{print "Sample size = " $1}'  >> ${SOURCEDIR}analysis_quality_results.txt
 	# Calculate Mean
 	awk '{a[i++]=$1;} END {x=int((i+1)/2); if (x < (i+1)/2) print "Mean = "(a[x-1]+a[x])/2; else print "Mean = "a[x-1];}' ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
 	# Calculate Average

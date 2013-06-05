@@ -164,18 +164,22 @@ function analyse_quality {
 	sort -n -o ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt ${SOURCEDIR}quality_${TIMESTAMP}.txt
 	# Cleanup
 	rm ${SOURCEDIR}quality_${TIMESTAMP}.txt
-	# Retrieve final sample size
-	wc -l ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt | awk '{print "Sample size = " $1}'  >> ${SOURCEDIR}analysis_quality_results.txt
-	# Calculate Mean
-	awk '{a[i++]=$1;} END {x=int((i+1)/2); if (x < (i+1)/2) print "Mean = "(a[x-1]+a[x])/2; else print "Mean = "a[x-1];}' ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
-	# Calculate Average
-	awk '{total+=$1; count+=1} END {print "Average = "total/count}' ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
-	# Find Minimum
-	awk '{if(min==""){min=max=$1}; if($1<min) {min=$1};} END {print "Minimal = "min}' ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
-	# Find Maximum
-	awk '{if(max==""){max=$1}; if($1>max) {max=$1};} END {print "Maximum = "max}' ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
+	# Remove all empty lines caused by identify being unable to read from damaged image files
+	sed '/^$/d' ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt > ${SOURCEDIR}quality_sorted_cleaned_${TIMESTAMP}.txt
 	# Cleanup
 	rm ${SOURCEDIR}quality_sorted_${TIMESTAMP}.txt
+	# Retrieve final sample size
+	wc -l ${SOURCEDIR}quality_sorted_cleaned_${TIMESTAMP}.txt | awk '{print "Sample size = " $1}'  >> ${SOURCEDIR}analysis_quality_results.txt
+	# Calculate Mean
+	awk '{a[i++]=$1;} END {x=int((i+1)/2); if (x < (i+1)/2) print "Mean = "(a[x-1]+a[x])/2; else print "Mean = "a[x-1];}' ${SOURCEDIR}quality_sorted_cleaned_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
+	# Calculate Average
+	awk '{total+=$1; count+=1} END {print "Average = "total/count}' ${SOURCEDIR}quality_sorted_cleaned_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
+	# Find Minimum
+	awk '{if(min==""){min=max=$1}; if($1<min) {min=$1};} END {print "Minimal = "min}' ${SOURCEDIR}quality_sorted_cleaned_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
+	# Find Maximum
+	awk '{if(max==""){max=$1}; if($1>max) {max=$1};} END {print "Maximum = "max}' ${SOURCEDIR}quality_sorted_cleaned_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
+	# Cleanup
+	rm ${SOURCEDIR}quality_sorted_cleaned_${TIMESTAMP}.txt
 }
 
 # Finally, launch the main program now that everything else is defined

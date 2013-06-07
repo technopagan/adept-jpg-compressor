@@ -79,13 +79,17 @@ declare -A METHODS=(
 # Define which evaluation shall be performed
 # Please make sure that you have selected an "analyse_" evalution if
 # you set $PROCESS to "analyse" or vice versa for "compare"
-# Currently possible values, grouped by methods "compare" and "analyse" 
+# 
+# "analyse" processes will output results in a .txt file prefixed "analysis_"
+#
+# Currently possible values, grouped by methods "compare" and "analyse": 
 #
 # compare_filesize_gain
 # 
 # analyse_quality
+# analyse_progressive_jpeg
 #
-EVALUATION="analyse_quality"
+EVALUATION="analyse_progressive_jpeg"
 
 # Accept the source directory as a parameter
 # Does not require manual configuration if the script is invoked correctly
@@ -156,7 +160,6 @@ function compare_filesize_gain {
 function analyse_quality {
 	IMAGESTOPROCESS=($(find ${SOURCEDIR} -maxdepth 1 -iregex ".*.jpe*g"))
 	for((i=0;i<${#IMAGESTOPROCESS[@]};i++)); do
-		file="${IMAGESTOPROCESS[$i]}"
 		# Retrieve the image quality as an integer via ImageMagick's identify
 		echo $(identify -quiet -format "%Q" "${IMAGESTOPROCESS[$i]}")
 	done >> ${SOURCEDIR}quality_${TIMESTAMP}.txt
@@ -180,6 +183,33 @@ function analyse_quality {
 	awk '{if(max==""){max=$1}; if($1>max) {max=$1};} END {print "Maximum = "max}' ${SOURCEDIR}quality_sorted_cleaned_${TIMESTAMP}.txt >> ${SOURCEDIR}analysis_quality_results.txt
 	# Cleanup
 	rm ${SOURCEDIR}quality_sorted_cleaned_${TIMESTAMP}.txt
+}
+
+# Use ImageMagick's identify to test for progressive JPG
+function analyse_progressive_jpeg {
+	IMAGESTOPROCESS=($(find ${SOURCEDIR} -maxdepth 1 -iregex ".*.jpe*g"))
+	PROGRESSIVE=0
+	TOTALCOUNT=0
+	for((i=0;i<${#IMAGESTOPROCESS[@]};i++)); do
+		# Returns "JPEG", "None" or an error if the file is unreadable by IM
+		JPEGPROGRESSIVESTATE=$(identify -verbose "${IMAGESTOPROCESS[$i]}" | grep Interlace | awk {'print $2'})
+		# If it returns "JPEG", the current JPG is saved as progressive, thus increment both counters
+		if [ "$JPEGPROGRESSIVESTATE" == "JPEG" ] ; then
+			PROGRESSIVE=$((PROGRESSIVE + 1))
+			TOTALCOUNT=$((TOTALCOUNT + 1))
+		# In case it returns "None", only increment the total count
+		# This prevents counting defective files as part of the total count - we can't rely on IMAGESTOPROCESS[@]
+		elif [ "$JPEGPROGRESSIVESTATE" == "None" ] ; then
+			TOTALCOUNT=$((TOTALCOUNT + 1))
+		fi
+	done
+	# Calculate percentage of progressive JPEGs
+	TOTALCOUNTONEPERCENT=$(echo "scale=4; ${TOTALCOUNT}/100" | bc)
+	PROGRESSIVEJPEGPERCENTAGE=$(echo "scale=1; ${PROGRESSIVE}/${TOTALCOUNTONEPERCENT}" | bc)
+	# Save results to output file
+	echo "Total JPEG sample size: ${TOTALCOUNT}" >> ${SOURCEDIR}analysis_progressive_jpeg_results.txt
+	echo "Progressive JPEGs within sample: ${PROGRESSIVE}" >> ${SOURCEDIR}analysis_progressive_jpeg_results.txt
+	echo "Percentage of progressive JPEGs within sample: ${PROGRESSIVEJPEGPERCENTAGE}%" >> ${SOURCEDIR}analysis_progressive_jpeg_results.txt
 }
 
 # Finally, launch the main program now that everything else is defined

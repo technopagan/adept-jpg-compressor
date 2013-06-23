@@ -82,6 +82,7 @@ In alphabetical order:
 
  * [Andy Davies](http://twitter.com/andydavies)
  * [Gregor Fabritius](http://twitter.com/grefab)
+ * [Alessandro Lenzen](http://twitter.com/adelnorsz)
  * [Claus Meteling](http://www.xing.com/profile/Claus_Meteling)
  * [Christian Schäfer](http://twitter.com/derSchepp)
  * [Yoav Weiss](http://twitter.com/yoavweiss)

@@ -78,20 +78,34 @@ OUTPUTFILESUFFIX="_adept_compress"
 
 
 ###############################################################################
-# RUNTIME VARIABLES (usually do not require tuning by users)
+# RUNTIME VARIABLES (usually do not require tuning by user)
 ###############################################################################
 
 # Accept the jpg filename as a parameter
 FILE="$1"
 
-# Retrieve path directory and filename without extension
+# If the script is called without an input file, explain how to use it & quit
+if  [ ! -f "$FILE" ]; then
+	echo "Missing input JPEG. Usage: $0 /path/to/jpeg/image.jpg"
+	exit 1
+fi
+
+# Retrieve clean filename without extension
 CLEANFILENAME=${FILE%.jpg}
+
+# Retrieve clean path directory without filename
 CLEANPATH=${FILE%/*}
 
-# If $DEFAULTCOMPRESSIONRATE is set to "inherit", discover the input JPG quality 
-if [ "$DEFAULTCOMPRESSIONRATE" == "inherit" ] ; then
-	DEFAULTCOMPRESSIONRATE=$(identify -format "%Q" "${1}")
-fi
+# If we cannot find the proper CLI tools automatically, define their paths here 
+# Possible values: autodetect, convert, /usr/bin/convert, CONVERT etc.
+# Default: autodetect
+CONVERT_COMMAND="autodetect"
+SORT_COMMAND="autodetect"
+IDENTIFY_COMMAND="autodetect"
+JPEGOPTIM_COMMAND="autodetect"
+BC_COMMAND="autodetect"
+MONTAGE_COMMAND="autodetect"
+JPEGRESCAN_COMMAND="autodetect"
 
 # Storage location for all temporary files during runtime
 # Use locations like /dev/shm (/run/shm/ in Ubuntu) to save files in Shared Memory Space (RAM) to avoid disk i/o troubles
@@ -108,77 +122,151 @@ BLACKWHITETHRESHOLD="0.333%"
 
 
 ###############################################################################
-# PROGRAM
+# MAIN PROGRAM
 ###############################################################################
 
-# Slice the input image into equally sized tiles
-convert "$FILE" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -crop "${TILEWIDTHANDHEIGHT}"x"${TILEWIDTHANDHEIGHT}" -set filename:tile "%[fx:page.y/${TILEWIDTHANDHEIGHT}+1]x%[fx:page.x/${TILEWIDTHANDHEIGHT}+1]" +repage +adjoin "${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_%[filename:tile].jpg"
+main() {
+	find_tools
+	slice_image_to_ram
+	detect_edges_or_planes_and_compress
+	calculate_tile_columns_and_rows_for_reassembly
+	reassemble_tiles_into_final_image
+}
 
-# Fill an array with the paths+filenames of all the tiles we have just sliced so that we can work on each of them
-# Also resort the freshly filled array from ASCII sort order to natural sort order so that filename_100 does not get processed before filename_1
-TILES=(${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*.jpg)
-TILES=($(printf '%s\n' "${TILES[@]}"|sort -V))
 
-# Iterate over every created tile we have listed in our array
-for((i=0;i<${#TILES[@]};i++))
-do
-	# Run an all-directional Sobel edge detection on the tile to discover high contrast borders
-	# These borders are areas JPG compression always has troubles with - so we will tread carefully if we detect them
-	# Then convert the Sobel result to a 2-color black+white image (channel ALL enables us to not lose information in the process) so that we can easily count the pixels
-	# The Threshold parameter is a basic noise filter - anything below it gets dropped so that our b/w-image is actually useful and not just pixelated noise
-	# Then we run identify on the 2-color limited palette PNG8 to retrieve the mean for the gray channel
-	# The result will be a decimal number (or zero) by which we can judge the visible object complexity in the current tile
-	CLEANTILENAME=${TILES[$i]%.jpg}
-	convert ${TILES[$i]} -define convolve:scale='!' -define morphology:compose=Lighten -morphology Convolve 'Sobel:>' "${CLEANTILENAME}_sobel.jpg"
-	convert "${CLEANTILENAME}_sobel.jpg" -channel All -random-threshold "${BLACKWHITETHRESHOLD}" "${CLEANTILENAME}_sobel_bw.png"
-	BWMEDIAN=$(identify -channel Gray -format "%[fx:255*mean]" "${CLEANTILENAME}_sobel_bw.png")
-	
-	# If the gray channel median is below a defined threshold, the visible area in the current tile is very likely simple & rather monotonous and can safely be exposed to a higher compression rate 
-	# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
-	if (( $(echo "$BWMEDIAN < 0.825" | bc -l) )); then
-		jpegoptim --max=${HIGHCOMPRESSIONRATE} -t -v --strip-all ${TILES[$i]} >/dev/null 2>/dev/null
+
+###############################################################################
+# FUNCTIONS
+###############################################################################
+
+# Use the findcommandlinetool function to find the handles for necessary tools 
+function find_tools {
+	# Reasonable default assumptions for finding a working convert
+	findcommandlinetool $CONVERT_COMMAND convert CONVERT /usr/bin/convert
+	CONVERT_COMMAND=${COMMANDLINETOOL}
+	# Reasonable default assumptions  for finding a working sort
+	findcommandlinetool $SORT_COMMAND sort SORT /usr/bin/sort
+	SORT_COMMAND=${COMMANDLINETOOL}
+	# Reasonable default assumptions  for finding a working identify
+	findcommandlinetool $IDENTIFY_COMMAND identify IDENTIFY /usr/bin/identify
+	IDENTIFY_COMMAND=${COMMANDLINETOOL}
+	# Reasonable default assumptions  for finding a working jpegoptim
+	findcommandlinetool $JPEGOPTIM_COMMAND jpegoptim JPEGOPTIM /usr/bin/jpegoptim
+	JPEGOPTIM_COMMAND=${COMMANDLINETOOL}
+	# Reasonable default assumptions  for finding a working bc
+	findcommandlinetool $BC_COMMAND bc BC /usr/bin/bc
+	BC_COMMAND=${COMMANDLINETOOL}
+	# Reasonable default assumptions  for finding a working montage
+	findcommandlinetool $MONTAGE_COMMAND montage MONTAGE /usr/bin/montage
+	MONTAGE_COMMAND=${COMMANDLINETOOL}
+	# Reasonable default assumptions  for finding a working jpegrescan
+	findcommandlinetool $JPEGRESCAN_COMMAND jpegrescan JPEGRESCAN /usr/bin/jpegrescan /usr/local/bin/jpegrescan
+	JPEGRESCAN_COMMAND=${COMMANDLINETOOL}	
+}
+
+# Find the proper callname for the required commandline tool
+function findcommandlinetool () {
+	# Take the parameters given at function call as input
+	NAME="$1"
+	shift
+	# For each possible name input of the tool, test if its actually available
+	for i in "$@"; do
+		COMMANDLINETOOL=$(type -p $i)
+		# If 'type -p' returned something, we now have our proper handle
+		if [ "$COMMANDLINETOOL" ]; then
+			break
+		fi
+	done
+	# In case none of the given inputs works, apologize & quit
+	if [ ! "$COMMANDLINETOOL" ]; then
+		echo "Unable to find ${NAME}. Please ensure that it is installed, set its CLI name in the runtime variables section of this script and retry."
+		exit 1
 	fi
-done
+}
 
-# First thing after the for-loop: cleanup the temporary Sobel tiles so they don't get mixed up in our montage reassembly and don't occupy Shared Memory any longer than necessary
-rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*sobel*
+# Slice the input image into equally sized tiles
+function slice_image_to_ram {
+	# If $DEFAULTCOMPRESSIONRATE is set to "inherit", discover the input JPG quality 
+	if [ "$DEFAULTCOMPRESSIONRATE" == "inherit" ] ; then
+		DEFAULTCOMPRESSIONRATE=$(${IDENTIFY_COMMAND} -format "%Q" ${FILE})
+	fi
+	${CONVERT_COMMAND} "$FILE" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -crop "${TILEWIDTHANDHEIGHT}"x"${TILEWIDTHANDHEIGHT}" -set filename:tile "%[fx:page.y/${TILEWIDTHANDHEIGHT}+1]x%[fx:page.x/${TILEWIDTHANDHEIGHT}+1]" +repage +adjoin "${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_%[filename:tile].jpg"
+}
+
+function detect_edges_or_planes_and_compress {
+	# Fill an array with the paths+filenames of all the tiles we have just sliced so that we can work on each of them
+	# Also resort the freshly filled array from ASCII sort order to natural sort order so that filename_100 does not get processed before filename_1
+	TILES=(${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*.jpg)
+	TILES=($(printf '%s\n' "${TILES[@]}"|${SORT_COMMAND} -V))
+
+	# Iterate over every created tile we have listed in our array
+	for((i=0;i<${#TILES[@]};i++))
+	do
+		# Run an all-directional Sobel edge detection on the tile to discover high contrast borders
+		# These borders are areas JPG compression always has troubles with - so we will tread carefully if we detect them
+		# Then convert the Sobel result to a 2-color black+white image (channel ALL enables us to not lose information in the process) so that we can easily count the pixels
+		# The Threshold parameter is a basic noise filter - anything below it gets dropped so that our b/w-image is actually useful and not just pixelated noise
+		# Then we run identify on the 2-color limited palette PNG8 to retrieve the mean for the gray channel
+		# The result will be a decimal number (or zero) by which we can judge the visible object complexity in the current tile
+		CLEANTILENAME=${TILES[$i]%.jpg}
+		${CONVERT_COMMAND} ${TILES[$i]} -define convolve:scale='!' -define morphology:compose=Lighten -morphology Convolve 'Sobel:>' "${CLEANTILENAME}_sobel.jpg"
+		${CONVERT_COMMAND} "${CLEANTILENAME}_sobel.jpg" -channel All -random-threshold "${BLACKWHITETHRESHOLD}" "${CLEANTILENAME}_sobel_bw.png"
+		BWMEDIAN=$(${IDENTIFY_COMMAND} -channel Gray -format "%[fx:255*mean]" "${CLEANTILENAME}_sobel_bw.png")
+		
+		# If the gray channel median is below a defined threshold, the visible area in the current tile is very likely simple & rather monotonous and can safely be exposed to a higher compression rate 
+		# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
+		if (( $(echo "$BWMEDIAN < 0.825" | ${BC_COMMAND} -l) )); then
+			${JPEGOPTIM_COMMAND} --max=${HIGHCOMPRESSIONRATE} -t -v --strip-all ${TILES[$i]} >/dev/null 2>/dev/null
+		fi
+	done
+
+	# First thing after the for-loop: cleanup the temporary Sobel tiles so they don't get mixed up in our montage reassembly and don't occupy Shared Memory any longer than necessary
+	rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*sobel*
+}
 
 # For the reassembly of the image, we need the number of columns + rows of tiles that were created
-# Let's begin by fetching image dimensions
-IMAGEHEIGHT=$(identify -format '%h' ${FILE})
-IMAGEWIDTH=$(identify -format '%w' ${FILE})
+function calculate_tile_columns_and_rows_for_reassembly {
+	# Let's begin by fetching image dimensions
+	IMAGEHEIGHT=$(${IDENTIFY_COMMAND} -format '%h' ${FILE})
+	IMAGEWIDTH=$(${IDENTIFY_COMMAND} -format '%w' ${FILE})
 
-# Divide the width+height by tile-size using bc because Bash cannot handle floating point calculations
-TILEROWSDECIMAL=$(echo "scale=4; ${IMAGEHEIGHT}/${TILEWIDTHANDHEIGHT}" | bc)
-TILECOLUMNSDECIMAL=$(echo "scale=4; ${IMAGEWIDTH}/${TILEWIDTHANDHEIGHT}" | bc)
+	# Divide the width+height by tile-size using bc because Bash cannot handle floating point calculations
+	TILEROWSDECIMAL=$(echo "scale=4; ${IMAGEHEIGHT}/${TILEWIDTHANDHEIGHT}" | ${BC_COMMAND} -l)
+	TILECOLUMNSDECIMAL=$(echo "scale=4; ${IMAGEWIDTH}/${TILEWIDTHANDHEIGHT}" | ${BC_COMMAND} -l)
 
-# Make use of Bash's behaviour of rounding down to see if we're tile-number = integer + 1
-TILEROWSROUNDEDDOWN=$(echo $((${IMAGEHEIGHT}/${TILEWIDTHANDHEIGHT})))
-TILECOLUMNSROUNDEDDOWN=$(echo $((${IMAGEWIDTH}/${TILEWIDTHANDHEIGHT})))
+	# Make use of Bash's behaviour of rounding down to see if we're tile-number = integer + 1
+	TILEROWSROUNDEDDOWN=$(echo $((${IMAGEHEIGHT}/${TILEWIDTHANDHEIGHT})))
+	TILECOLUMNSROUNDEDDOWN=$(echo $((${IMAGEWIDTH}/${TILEWIDTHANDHEIGHT})))
 
-# For both rows+columns, check if we need to +1 our integer because the decimal is larger than it
-if (( $(echo "$TILEROWSDECIMAL > $TILEROWSROUNDEDDOWN" | bc -l) )); then
-	TILEROWS=$(echo $((${TILEROWSROUNDEDDOWN}+1)))
-else
-	TILEROWS=${TILEROWSROUNDEDDOWN}
-fi
+	# For both rows+columns, check if we need to +1 our integer because the decimal is larger than it
+	if (( $(echo "$TILEROWSDECIMAL > $TILEROWSROUNDEDDOWN" | ${BC_COMMAND} -l) )); then
+		TILEROWS=$(echo $((${TILEROWSROUNDEDDOWN}+1)))
+	else
+		TILEROWS=${TILEROWSROUNDEDDOWN}
+	fi
 
-if (( $(echo "$TILECOLUMNSDECIMAL > $TILECOLUMNSROUNDEDDOWN" | bc -l) )); then
-	TILECOLUMNS=$(echo $((${TILECOLUMNSROUNDEDDOWN}+1)))
-else
-	TILECOLUMNS=${TILECOLUMNSROUNDEDDOWN}
-fi
+	if (( $(echo "$TILECOLUMNSDECIMAL > $TILECOLUMNSROUNDEDDOWN" | ${BC_COMMAND} -l) )); then
+		TILECOLUMNS=$(echo $((${TILECOLUMNSROUNDEDDOWN}+1)))
+	else
+		TILECOLUMNS=${TILECOLUMNSROUNDEDDOWN}
+	fi
+}
 
-# Now that we know our number of rows+columns, we can use montage to recombine the - now partially compressed - tiles into one coherant JPG
-# We're piping the list of filenames to process by montage to "sort -V" to achieve natural sorting so that tilename_2_10.jpg actually is processed after tilename_2_9.jpg and not before tilename_2_1.jpg - otherwise the recombined image would be messed up 
-montage -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(ls "${TILESTORAGEPATH}${CLEANFILENAME##*/}"_tile_*.jpg | sort -V) "${CLEANPATH}/${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".jpg
+function reassemble_tiles_into_final_image {
+	# Now that we know our number of rows+columns, we can use montage to recombine the - now partially compressed - tiles into one coherant JPG
+	# We're piping the list of filenames to process by montage to "sort -V" to achieve natural sorting so that tilename_2_10.jpg actually is processed after tilename_2_9.jpg and not before tilename_2_1.jpg - otherwise the recombined image would be messed up 
+	${MONTAGE_COMMAND} -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(ls "${TILESTORAGEPATH}${CLEANFILENAME##*/}"_tile_*.jpg | ${SORT_COMMAND} -V) "${CLEANPATH}/${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".jpg
 
-# During montage reassembly, the resulting image received bytes of padding due to the way the JPEG compression algorithm works on tiles not sized as a multiple of 8   
-# So we run jpegrescan on the final image to losslessly remove this padding and make the output JPG progressive
-jpegrescan -q -s "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".jpg "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".jpg
+	# During montage reassembly, the resulting image received bytes of padding due to the way the JPEG compression algorithm works on tiles not sized as a multiple of 8   
+	# So we run jpegrescan on the final image to losslessly remove this padding and make the output JPG progressive
+	${JPEGRESCAN_COMMAND} -q -s "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".jpg "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".jpg
 
-# Cleanup the temporary tiles
-rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*.jpg
+	# Cleanup the temporary tiles
+	rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*.jpg
+}
+
+# Finally, launch the main program
+main
 
 
 

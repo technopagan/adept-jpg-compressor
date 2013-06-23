@@ -72,7 +72,7 @@ VERBOSEMODE=0
 
 # Control noise threshold for tiles. Higher threshold leads to more tiles being marked as compressable at the cost of image quality
 # Deafult: 0.175% - only raise in small steps, e.g. 0.333% or 0.5%
-BLACKWHITETHRESHOLD='0.333%'
+BLACKWHITETHRESHOLD="0.333%"
 
 # Default JPG quality setting, either inherited or defined as an integer of 0-100
 # Default: inherit
@@ -88,11 +88,11 @@ TILEWIDTHANDHEIGHT="64"
 
 # Storage location for all temporary files during runtime
 # Use locations like /dev/shm (/run/shm/ in Ubuntu) to save files in Shared Memory Space (RAM) to avoid disk i/o troubles
-TILESTORAGEPATH='/dev/shm/'
+TILESTORAGEPATH="/dev/shm/"
 
 # Suffix string to attach to the output JPG filename, e.g. '_adept_compress'
 # If deliberatly set empty (''), the input JPG will be replaced with the new compressed JPG created by this script
-OUTPUTFILESUFFIX='_adept_compress'
+OUTPUTFILESUFFIX="_adept_compress"
 
 
 

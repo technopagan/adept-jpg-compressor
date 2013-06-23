@@ -90,7 +90,7 @@ CLEANPATH=${FILE%/*}
 
 # If $DEFAULTCOMPRESSIONRATE is set to "inherit", discover the input JPG quality 
 if [ "$DEFAULTCOMPRESSIONRATE" == "inherit" ] ; then
-	DEFAULTCOMPRESSIONRATE=`identify -format "%Q" "${1}"`
+	DEFAULTCOMPRESSIONRATE=$(identify -format "%Q" "${1}")
 fi
 
 # Storage location for all temporary files during runtime
@@ -131,7 +131,7 @@ do
 	CLEANTILENAME=${TILES[$i]%.jpg}
 	convert ${TILES[$i]} -define convolve:scale='!' -define morphology:compose=Lighten -morphology Convolve 'Sobel:>' "${CLEANTILENAME}_sobel.jpg"
 	convert "${CLEANTILENAME}_sobel.jpg" -channel All -random-threshold "${BLACKWHITETHRESHOLD}" "${CLEANTILENAME}_sobel_bw.png"
-	BWMEDIAN=`identify -channel Gray -format "%[fx:255*mean]" "${CLEANTILENAME}_sobel_bw.png"`
+	BWMEDIAN=$(identify -channel Gray -format "%[fx:255*mean]" "${CLEANTILENAME}_sobel_bw.png")
 	
 	# If the gray channel median is below a defined threshold, the visible area in the current tile is very likely simple & rather monotonous and can safely be exposed to a higher compression rate 
 	# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
@@ -145,26 +145,26 @@ rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*sobel*
 
 # For the reassembly of the image, we need the number of columns + rows of tiles that were created
 # Let's begin by fetching image dimensions
-IMAGEHEIGHT=`identify -format '%h' ${FILE}`
-IMAGEWIDTH=`identify -format '%w' ${FILE}`
+IMAGEHEIGHT=$(identify -format '%h' ${FILE})
+IMAGEWIDTH=$(identify -format '%w' ${FILE})
 
 # Divide the width+height by tile-size using bc because Bash cannot handle floating point calculations
-TILEROWSDECIMAL=`echo "scale=4; ${IMAGEHEIGHT}/${TILEWIDTHANDHEIGHT}" | bc`
-TILECOLUMNSDECIMAL=`echo "scale=4; ${IMAGEWIDTH}/${TILEWIDTHANDHEIGHT}" | bc`
+TILEROWSDECIMAL=$(echo "scale=4; ${IMAGEHEIGHT}/${TILEWIDTHANDHEIGHT}" | bc)
+TILECOLUMNSDECIMAL=$(echo "scale=4; ${IMAGEWIDTH}/${TILEWIDTHANDHEIGHT}" | bc)
 
 # Make use of Bash's behaviour of rounding down to see if we're tile-number = integer + 1
-TILEROWSROUNDEDDOWN=`echo $((${IMAGEHEIGHT}/${TILEWIDTHANDHEIGHT}))`
-TILECOLUMNSROUNDEDDOWN=`echo $((${IMAGEWIDTH}/${TILEWIDTHANDHEIGHT}))`
+TILEROWSROUNDEDDOWN=$(echo $((${IMAGEHEIGHT}/${TILEWIDTHANDHEIGHT})))
+TILECOLUMNSROUNDEDDOWN=$(echo $((${IMAGEWIDTH}/${TILEWIDTHANDHEIGHT})))
 
 # For both rows+columns, check if we need to +1 our integer because the decimal is larger than it
 if (( $(echo "$TILEROWSDECIMAL > $TILEROWSROUNDEDDOWN" | bc -l) )); then
-	TILEROWS=`echo $((${TILEROWSROUNDEDDOWN}+1))`
+	TILEROWS=$(echo $((${TILEROWSROUNDEDDOWN}+1)))
 else
 	TILEROWS=${TILEROWSROUNDEDDOWN}
 fi
 
 if (( $(echo "$TILECOLUMNSDECIMAL > $TILECOLUMNSROUNDEDDOWN" | bc -l) )); then
-	TILECOLUMNS=`echo $((${TILECOLUMNSROUNDEDDOWN}+1))`
+	TILECOLUMNS=$(echo $((${TILECOLUMNSROUNDEDDOWN}+1)))
 else
 	TILECOLUMNS=${TILECOLUMNSROUNDEDDOWN}
 fi

@@ -60,15 +60,8 @@
 
 
 ###############################################################################
-# Configuration Parameters
+# USER CONFIGURABLE PARAMETERS
 ###############################################################################
-
-# Accept the jpg filename as a parameter
-FILE="$1"
-
-# Control noise threshold for tiles. Higher threshold leads to more tiles being marked as compressable at the cost of image quality
-# Deafult: 0.175% - only raise in small steps, e.g. 0.333% or 0.5%
-BLACKWHITETHRESHOLD="0.333%"
 
 # Default JPG quality setting, either inherited or defined as an integer of 0-100
 # Default: inherit
@@ -78,14 +71,6 @@ DEFAULTCOMPRESSIONRATE="inherit"
 # Default: 66
 HIGHCOMPRESSIONRATE="66"
 
-# Square dimensions for all temporary tiles. Only use multiples of 8 (8/16/32/64/128/256)
-# Default: 64 - The tile size heavily influences runtime performance 
-TILEWIDTHANDHEIGHT="64"
-
-# Storage location for all temporary files during runtime
-# Use locations like /dev/shm (/run/shm/ in Ubuntu) to save files in Shared Memory Space (RAM) to avoid disk i/o troubles
-TILESTORAGEPATH="/dev/shm/"
-
 # Suffix string to attach to the output JPG filename, e.g. '_adept_compress'
 # If deliberatly set empty (''), the input JPG will be replaced with the new compressed JPG created by this script
 OUTPUTFILESUFFIX="_adept_compress"
@@ -93,8 +78,11 @@ OUTPUTFILESUFFIX="_adept_compress"
 
 
 ###############################################################################
-# PROGRAM
+# RUNTIME VARIABLES (usually do not require tuning by users)
 ###############################################################################
+
+# Accept the jpg filename as a parameter
+FILE="$1"
 
 # Retrieve path directory and filename without extension
 CLEANFILENAME=${FILE%.jpg}
@@ -105,10 +93,26 @@ if [ "$DEFAULTCOMPRESSIONRATE" == "inherit" ] ; then
 	DEFAULTCOMPRESSIONRATE=`identify -format "%Q" "${1}"`
 fi
 
+# Storage location for all temporary files during runtime
+# Use locations like /dev/shm (/run/shm/ in Ubuntu) to save files in Shared Memory Space (RAM) to avoid disk i/o troubles
+TILESTORAGEPATH="/dev/shm/"
+
+# Square dimensions for all temporary tiles. Only use multiples of 8 (8/16/32/64/128/256)
+# Default: 64 - The tile size heavily influences runtime performance 
+TILEWIDTHANDHEIGHT="64"
+
+# Control noise threshold for tiles. Higher threshold leads to more tiles being marked as compressable at the cost of image quality
+# Deafult: 0.175% - only raise in small steps, e.g. 0.333% or 0.5%
+BLACKWHITETHRESHOLD="0.333%"
+
+
+
+###############################################################################
+# PROGRAM
+###############################################################################
 
 # Slice the input image into equally sized tiles
 convert "$FILE" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -crop "${TILEWIDTHANDHEIGHT}"x"${TILEWIDTHANDHEIGHT}" -set filename:tile "%[fx:page.y/${TILEWIDTHANDHEIGHT}+1]x%[fx:page.x/${TILEWIDTHANDHEIGHT}+1]" +repage +adjoin "${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_%[filename:tile].jpg"
-
 
 # Fill an array with the paths+filenames of all the tiles we have just sliced so that we can work on each of them
 # Also resort the freshly filled array from ASCII sort order to natural sort order so that filename_100 does not get processed before filename_1

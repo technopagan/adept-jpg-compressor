@@ -120,7 +120,7 @@ TILESTORAGEPATH="/dev/shm/"
 
 # Square dimensions for all temporary tiles. Only use multiples of 8 (8/16/32/64/128/256)
 # Default: 64 - The tile size heavily influences runtime performance 
-TILEWIDTHANDHEIGHT="32"
+TILESIZE="32"
 
 # Control noise threshold for tiles. Higher threshold leads to more tiles being marked as compressable at the cost of image quality
 # Default: 0.333 - only raise/lower in small steps, e.g. 0.175, 0.333, 0.5 etc
@@ -137,10 +137,12 @@ BWTHRESHOLD_ITERATION_COUNT=0
 
 main() {
 	find_tools
+	optimize_tile_size TILESIZE "${FILE}" ${TILESIZE}
 	optimize_bwthreshold BLACKWHITETHRESHOLD "${FILE}" ${BLACKWHITETHRESHOLD}
 	slice_image_to_ram
 	estimate_tile_content_complexity_and_compress
-	calculate_tile_columns_and_rows_for_reassembly
+	calculate_tile_count_for_reassembly TILEROWS ${IMAGEHEIGHT} ${TILESIZE}
+	calculate_tile_count_for_reassembly TILECOLUMNS ${IMAGEWIDTH} ${TILESIZE}
 	reassemble_tiles_into_final_image
 }
 
@@ -195,6 +197,42 @@ function findcommandlinetool () {
 	fi
 }
 
+# Tile size is the no.1 performance bottleneck for Adept, so it is important we pick an optimal tile size for the input image dimensions
+# Also, the number of tiles to be recombined affects compression efficiency and salient areas within an image tend to have similar dimensional
+# relations to total image size, so it makes sense to change tile size accordingly
+function optimize_tile_size {
+	# Define local variables to work with
+    local  __result=$1
+    local  __imagetomeasure=$2
+    local  __optimaltilesize=$3
+	# Read the width & height of the input image into two global variables because we'll need these values elsewhere too
+	IMAGEHEIGHT=$(${IDENTIFY_COMMAND} -format '%h' ${__imagetomeasure})
+	IMAGEWIDTH=$(${IDENTIFY_COMMAND} -format '%w' ${__imagetomeasure})
+	# Pick the smaller of the two dimensions of the image as the decisive integer for tile size
+	local  __decisivedimension=${IMAGEHEIGHT}
+	if (( $(echo "$IMAGEWIDTH < $__decisivedimension" | ${BC_COMMAND} -l) )); then
+		__decisivedimension=${IMAGEWIDTH}
+	fi    
+	# For a series of sensible steps, change the tile size accordingly
+	if (( $(echo "$__decisivedimension <= 128" | bc -l) )); then
+		__optimaltilesize="8"
+	elif (( $(echo "$__decisivedimension >= 129" | bc -l) )) && (( $(echo "$__decisivedimension <= 256" | bc -l) )); then
+		__optimaltilesize="16"
+	elif (( $(echo "$__decisivedimension >= 257" | bc -l) )) && (( $(echo "$__decisivedimension <= 512" | bc -l) )); then
+		__optimaltilesize="32"
+	elif (( $(echo "$__decisivedimension >= 513" | bc -l) )) && (( $(echo "$__decisivedimension <= 1024" | bc -l) )); then
+		__optimaltilesize="64"
+	elif (( $(echo "$__decisivedimension >= 1025" | bc -l) )) && (( $(echo "$__decisivedimension <= 2560" | bc -l) )); then
+		__optimaltilesize="128"
+	elif (( $(echo "$__decisivedimension >= 2561" | bc -l) )); then
+		__optimaltilesize="256"
+	else
+		__optimaltilesize="64"	
+	fi
+	# Return the result
+	eval $__result="'${__optimaltilesize}'"
+}
+
 # Determine a threshold value that has a good signal to noise ratio for the input image
 function optimize_bwthreshold()
 {
@@ -221,7 +259,7 @@ function slice_image_to_ram {
 	if [ "$DEFAULTCOMPRESSIONRATE" == "inherit" ] ; then
 		DEFAULTCOMPRESSIONRATE=$(${IDENTIFY_COMMAND} -format "%Q" ${FILE})
 	fi
-	${CONVERT_COMMAND} "$FILE" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -define jpeg:dct-method=float -crop "${TILEWIDTHANDHEIGHT}"x"${TILEWIDTHANDHEIGHT}" -set filename:tile "%[fx:page.y/${TILEWIDTHANDHEIGHT}+1]x%[fx:page.x/${TILEWIDTHANDHEIGHT}+1]" +repage +adjoin "${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_%[filename:tile].jpg"
+	${CONVERT_COMMAND} "$FILE" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -define jpeg:dct-method=float -crop "${TILESIZE}"x"${TILESIZE}" -set filename:tile "%[fx:page.y/${TILESIZE}+1]x%[fx:page.x/${TILESIZE}+1]" +repage +adjoin "${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_%[filename:tile].jpg"
 }
 
 function estimate_tile_content_complexity_and_compress {
@@ -267,32 +305,24 @@ function get_black_white_median()
 	eval $__result="'${__currentbwmedian}'"
 }
 
-# For the reassembly of the image, we need the number of columns + rows of tiles that were created
-function calculate_tile_columns_and_rows_for_reassembly {
-	# Let's begin by fetching image dimensions
-	IMAGEHEIGHT=$(${IDENTIFY_COMMAND} -format '%h' ${FILE})
-	IMAGEWIDTH=$(${IDENTIFY_COMMAND} -format '%w' ${FILE})
-
-	# Divide the width+height by tile-size using bc because Bash cannot handle floating point calculations
-	TILEROWSDECIMAL=$(echo "scale=4; ${IMAGEHEIGHT}/${TILEWIDTHANDHEIGHT}" | ${BC_COMMAND} -l)
-	TILECOLUMNSDECIMAL=$(echo "scale=4; ${IMAGEWIDTH}/${TILEWIDTHANDHEIGHT}" | ${BC_COMMAND} -l)
-
-	# Make use of Bash's behaviour of rounding down to see if we're tile-number = integer + 1
-	TILEROWSROUNDEDDOWN=$(echo $((${IMAGEHEIGHT}/${TILEWIDTHANDHEIGHT})))
-	TILECOLUMNSROUNDEDDOWN=$(echo $((${IMAGEWIDTH}/${TILEWIDTHANDHEIGHT})))
-
-	# For both rows+columns, check if we need to +1 our integer because the decimal is larger than it
-	if (( $(echo "$TILEROWSDECIMAL > $TILEROWSROUNDEDDOWN" | ${BC_COMMAND} -l) )); then
-		TILEROWS=$(echo $((${TILEROWSROUNDEDDOWN}+1)))
+# For the reassembly of the image, we need the count of rows and columns of tiles that were created
+function calculate_tile_count_for_reassembly {
+	# Define local variables to work with
+    local  __result=$1
+    local  __currentimagedimension=$2
+    local  __currenttilesize=$3
+	# Divide the height by tilesize using bc because Bash cannot handle floating point calculations
+	local __tilecountdecimal=$(echo "scale=4; ${__currentimagedimension}/${__currenttilesize}" | ${BC_COMMAND} -l)
+	# Make use of Bash's behaviour of rounding down to see if we're tilecount = integer + 1
+	local __tilecountroundeddown=$(echo $((${__currentimagedimension}/${__currenttilesize})))
+	# Check if we need to +1 our integer because the decimal is larger than the integer
+	if (( $(echo "$__tilecountdecimal > $__tilecountroundeddown" | ${BC_COMMAND} -l) )); then
+		local __tilecount=$(echo $((${__tilecountroundeddown}+1)))
 	else
-		TILEROWS=${TILEROWSROUNDEDDOWN}
+		local __tilecount=${__tilecountroundeddown}
 	fi
-
-	if (( $(echo "$TILECOLUMNSDECIMAL > $TILECOLUMNSROUNDEDDOWN" | ${BC_COMMAND} -l) )); then
-		TILECOLUMNS=$(echo $((${TILECOLUMNSROUNDEDDOWN}+1)))
-	else
-		TILECOLUMNS=${TILECOLUMNSROUNDEDDOWN}
-	fi
+	# Return result
+	eval $__result="'${__tilecount}'"
 }
 
 function reassemble_tiles_into_final_image {

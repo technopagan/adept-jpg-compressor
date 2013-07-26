@@ -70,12 +70,6 @@ Adobe Fireworks + ImageOptim save 9.19% of filesize. While this makes the result
 [![Beach JPEGMini](images/05-05-satchel-jpegmini.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/05-05-satchel-jpegmini.jpg)
 JPEGMini achieves 25.48% smaller filessize on the leather satchel image. Again, this comes at a cost of reduced visual quality: the leather texture in the foreground, esp. on high contrast areas such as the belt or the handlebar, becomes blurry and loses contrast.
 
-## Known Issues
-
- * Currently, Adept handles images of large dimensions poorly. While it compresses an image of e.g. 500x400 pixels very well (gain > 10%) and maintains good visual quality, it actually creates an even larger output image than the original when dealing with sizes of >1.5 megapixels. So while you can already deploy Adept for smaller website images today, do not run it on high resolution images yet. This is an aspect of Adept that will be addressed ASAP.
- * Images with high noise ratios, such as the famous [Lenna](https://en.wikipedia.org/wiki/Lenna), the de facto standard test image for image processing algorithms, will not compress well with Adept without configurating the threshold value. Otherwise, too few areas of the image will become compressed for the filesize to be reduced significantly. An automagic pre-assessment of incoming images to dynamically change the threshold value is already in [Adept's Issue Tracker](https://github.com/technopagan/adept-jpg-compressor/issues).
- * Runtime for Adept greatly changes with input image size, tile-size and available hardware. While small images of e.g. 500x400 take only 1s to process successfully, running Adept on high-megapixel images will take >20s - combined with the lack of success on such large images (see above).
-
 ## Contributors
 
 In alphabetical order:

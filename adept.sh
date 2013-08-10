@@ -137,11 +137,11 @@ prepwork() {
 }
 
 main() {
-	find_image_dimension IMAGEHEIGHT "${FILE}" 'h'
 	find_image_dimension IMAGEWIDTH "${FILE}" 'w'
-	optimize_tile_size TILESIZE ${TILESIZE}
+	find_image_dimension IMAGEHEIGHT "${FILE}" 'h'
+	optimize_tile_size TILESIZE ${TILESIZE} ${IMAGEWIDTH} ${IMAGEHEIGHT}
 	optimize_bwthreshold BLACKWHITETHRESHOLD "${FILE}" ${BLACKWHITETHRESHOLD}
-	slice_image_to_ram
+	slice_image_to_ram "${FILE}" ${TILESIZE} ${TILESTORAGEPATH}
 	estimate_tile_content_complexity_and_compress
 	calculate_tile_count_for_reassembly TILEROWS ${IMAGEHEIGHT} ${TILESIZE}
 	calculate_tile_count_for_reassembly TILECOLUMNS ${IMAGEWIDTH} ${TILESIZE}
@@ -222,12 +222,14 @@ function optimize_tile_size {
 	# Define local variables to work with
     local  __result=$1
     local  __optimaltilesize=$2
+    local  __currentimagewidth=$3
+    local  __currentimageheight=$4
     # The default "autodetect" setting causes Adept to find a suitable tile size according to image dimensions
     if [ "$TILESIZE" == "autodetect" ] ; then
 		# Pick the smaller of the two dimensions of the image as the decisive integer for tile size
-		local  __decisivedimension=${IMAGEHEIGHT}
+		local  __decisivedimension=${__currentimageheight}
 		if (( $(echo "$IMAGEWIDTH < $__decisivedimension" | bc -l) )); then
-			__decisivedimension=${IMAGEWIDTH}
+			__decisivedimension=${__currentimagewidth}
 		fi    
 		# For a series of sensible steps, change the tile size accordingly
 		if (( $(echo "$__decisivedimension <= 128" | bc -l) )); then
@@ -275,11 +277,15 @@ function optimize_bwthreshold()
 
 # Slice the input image into equally sized tiles
 function slice_image_to_ram {
+	# Define local variables to work with
+	local  __filetoprocess=$1
+	local  __currenttilesize=$2
+	local  __currenttilestoragepath=$3
 	# If $DEFAULTCOMPRESSIONRATE is set to "inherit", discover the input JPG quality 
 	if [ "$DEFAULTCOMPRESSIONRATE" == "inherit" ] ; then
-		DEFAULTCOMPRESSIONRATE=$(${IDENTIFY_COMMAND} -format "%Q" ${FILE})
+		DEFAULTCOMPRESSIONRATE=$(${IDENTIFY_COMMAND} -format "%Q" ${__filetoprocess})
 	fi
-	${CONVERT_COMMAND} "$FILE" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -define jpeg:dct-method=float -crop "${TILESIZE}"x"${TILESIZE}" -set filename:tile "%[fx:page.y/${TILESIZE}+1]x%[fx:page.x/${TILESIZE}+1]" +repage +adjoin "${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_%[filename:tile].${FILEEXTENSION}"
+	${CONVERT_COMMAND} "$__filetoprocess" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -define jpeg:dct-method=float -crop "${__currenttilesize}"x"${__currenttilesize}" -set filename:tile "%[fx:page.y/${__currenttilesize}+1]x%[fx:page.x/${__currenttilesize}+1]" +repage +adjoin "${__currenttilestoragepath}${CLEANFILENAME##*/}_tile_%[filename:tile].${FILEEXTENSION}"
 }
 
 # For each tile, test if it is suitable for higher compression and if so, proceed

@@ -264,11 +264,11 @@ function optimize_bwthreshold()
     local  __bwthreshold=$3
     local  __actualbwmedian=''
     # Retrieve the black/white median decimal for the entire image to get an estimate on its complexity / noise level
-    get_black_white_median __actualbwmedian ${__filetoprocess} ${__bwthreshold}
+    get_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
     # In case there is too much noise at the current $BLACKWHITETHRESHOLD setting, try to optimize it
     while (( $(echo "$__actualbwmedian > 50" | bc -l) )) && (( ${BWTHRESHOLD_ITERATION_COUNT} < 5 )); do
 		__bwthreshold=$(echo "scale=4; ${__bwthreshold}+0.1" | bc -l)
-		get_black_white_median __actualbwmedian ${__filetoprocess} ${__bwthreshold}
+		get_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
 		((BWTHRESHOLD_ITERATION_COUNT++))
     done
     # Return result
@@ -297,7 +297,7 @@ function estimate_tile_content_complexity_and_compress {
 	# Iterate over every created tile we have listed in our array
 	for((i=0;i<${#__tilesarray[@]};i++)) ; do
 		# Retrieve the black/white median decimal for each tile and store the result in $BWMEDIAN
-		get_black_white_median BWMEDIAN ${__tilesarray[$i]} ${BLACKWHITETHRESHOLD}
+		get_black_white_median BWMEDIAN ${__tilesarray[$i]} ${TILESTORAGEPATH} ${BLACKWHITETHRESHOLD}
 		# If the gray channel median is below a defined threshold, the visible area in the current tile is very likely simple & rather monotonous and can safely be exposed to a higher compression rate 
 		# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
 		if (( $(echo "$BWMEDIAN < 0.825" | bc -l) )); then
@@ -315,18 +315,19 @@ function get_black_white_median()
     local  __filetomeasure=$2
     local  __filenameandpath=${__filetomeasure%.jp*g}
     local  __filenameonly=${__filenameandpath##*/}
-    local  __newbwthreshold=$3
+    local  __currenttilestoragepath=$3
+    local  __newbwthreshold=$4
 	# Run an all-directional Sobel edge detection on the tile to discover high contrast borders
 	# These borders are areas JPG compression always has troubles with - so we will tread carefully if we detect them
 	# Then convert the Sobel result to a 2-color black+white image (channel ALL enables us to not lose information in the process) so that we can easily count the pixels
 	# The Threshold parameter is a basic noise filter - anything below it gets dropped so that our b/w-image is actually useful and not just pixelated noise
 	# Then we run identify on the 2-color limited palette PNG8 to retrieve the mean for the gray channel
 	# The result will be a decimal number (or zero) by which we can judge the visible object complexity in the current tile
-    ${CONVERT_COMMAND} ${__filetomeasure} -define convolve:scale='!' -define morphology:compose=Lighten -morphology Convolve 'Sobel:>' "${TILESTORAGEPATH}${__filenameonly}_sobel.${FILEEXTENSION}"
-	${CONVERT_COMMAND} "${TILESTORAGEPATH}${__filenameonly}_sobel.${FILEEXTENSION}" -channel All -random-threshold "${__newbwthreshold}%" "${TILESTORAGEPATH}${__filenameonly}_sobel_bw.png"
-	local __currentbwmedian=$(${IDENTIFY_COMMAND} -channel Gray -format "%[fx:255*mean]" "${TILESTORAGEPATH}${__filenameonly}_sobel_bw.png")
+    ${CONVERT_COMMAND} ${__filetomeasure} -define convolve:scale='!' -define morphology:compose=Lighten -morphology Convolve 'Sobel:>' "${__currenttilestoragepath}${__filenameonly}_sobel.${FILEEXTENSION}"
+	${CONVERT_COMMAND} "${__currenttilestoragepath}${__filenameonly}_sobel.${FILEEXTENSION}" -channel All -random-threshold "${__newbwthreshold}%" "${__currenttilestoragepath}${__filenameonly}_sobel_bw.png"
+	local __currentbwmedian=$(${IDENTIFY_COMMAND} -channel Gray -format "%[fx:255*mean]" "${__currenttilestoragepath}${__filenameonly}_sobel_bw.png")
 	# Cleanup
-	rm ${TILESTORAGEPATH}${__filenameonly}_sobel.${FILEEXTENSION} ${TILESTORAGEPATH}${__filenameonly}_sobel_bw.png
+	rm ${__currenttilestoragepath}${__filenameonly}_sobel.${FILEEXTENSION} ${__currenttilestoragepath}${__filenameonly}_sobel_bw.png
 	# Return result
 	eval $__result="'${__currentbwmedian}'"
 }

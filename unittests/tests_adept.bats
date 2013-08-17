@@ -43,9 +43,13 @@ source "${BATS_TEST_DIRNAME}/../adept.sh" >/dev/null 2>/dev/null
 
 # NEEDS REFACTORING: estimate_tile_content_complexity_and_compress
 
-# NEEDS REFACTORING: get_black_white_median
-# ${TILESTORAGEPATH} and ${FILEEXTENSION} are not actually handed over, but read from global variables
-# Make use of $BATS_TMPDIR to store testing tiles temporarily
+@test "Retrieve Black/White Median" {
+  FILEEXTENSION='jpg'
+  get_black_white_median BWMEDIAN "test.jpg" "$BATS_TMPDIR/" ${BLACKWHITETHRESHOLD}
+  result=${BWMEDIAN}
+  [ "$(echo $result '==' 2.00775 | bc -l)" -eq 1 ]
+  rm -f "$BATS_TMPDIR/.*.jpe*g"
+}
 
 @test "Calculate Tile Count for Reassembly" {
   calculate_tile_count_for_reassembly TILEROWS 512 32

@@ -164,7 +164,7 @@ function find_tool () {
     # Array of possible tool locations: name, name as ALL-CAPS, /usr/bin/name, /usr/local/bin/name and custom path
 	local __possibletoollocations=(${__tool} ${__tool^^} /usr/bin/${__tool} /usr/local/bin/${__tool} ${__customtoolpath})
 	# For each possible tool location, test if its actually available there
-	for i in "${__possibletoollocations}"; do
+	for i in "${__possibletoollocations[@]}"; do
 		local __commandlinetool=$(type -p $i)
 		# If 'type -p' returned something, we now have our proper handle
 		if [ "$__commandlinetool" ]; then

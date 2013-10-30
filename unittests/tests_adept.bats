@@ -7,6 +7,12 @@ source "${BATS_TEST_DIRNAME}/../adept.sh" >/dev/null 2>/dev/null
   [ $status -eq 0 ]
 }
 
+# Make sure that we actually look for tools in other directories than $PATH
+@test "Find Tools with path resolving" {
+  run find_tool IDENTIFY_COMMAND nonexistingcommand identify
+  [ $status -eq 0 ]
+}
+
 @test "Validate Input JPEG" {
   validate_image VALIDJPEG "test.jpg"
   result=${VALIDJPEG}

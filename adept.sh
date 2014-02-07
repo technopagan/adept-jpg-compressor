@@ -1,4 +1,4 @@
-#!/usr/bin/env bash 
+#!/usr/bin/env bash
 
 ###############################################################################
 #
@@ -7,23 +7,23 @@
 # Usage: bash adept.sh /path/to/image.jpg
 #
 ###############################################################################
-# 
+#
 # Brief overview of the script's mode of operation:
 #
 # The input JPG gets sliced into tiles, sized as a multiple of 8 due to the
 # nature of the JPG algorithm. The tiles are run through an all-directional
 # Sobel Edge Detect algorithm. The resulting tiles get further reduced to
-# 2-color black+white PNGs with limited palette. 
+# 2-color black+white PNGs with limited palette.
 #
-# These PNGs are ideal to analyse the gray channel mean value and use it 
-# as a single integer indicator to judge the perceivable complexity of 
+# These PNGs are ideal to analyse the gray channel mean value and use it
+# as a single integer indicator to judge the perceivable complexity of
 # the current image segment.
 #
 # Tiles with low complexity contents get compressed stronger than others.
 # At reassemlby, this leads to savings in image bytesize while maintaining
 # good visual quality because no compression artefacts occur in areas of
-# high-complexity or sharp contrasts. 
-# 
+# high-complexity or sharp contrasts.
+#
 ###############################################################################
 # Tools that need to be pre-installed:
 #
@@ -32,16 +32,16 @@
 # 	* JPEGOptim
 #
 #	* JPEGRescan Perl Script for lossless JPG compression
-#	  http://github.com/kud/jpegrescan
-# 
+#	 http://github.com/kud/jpegrescan
+#
 # Note: Additonal tools are required to run Adept, such as "bc", "sort",
 # "rm" and Bash 4.x. As all of these tools are provided by lsbcore, core-utils
 # or similar default packages, we can expect them to be always available.
 #
 ###############################################################################
-# 
+#
 # This software is published under the BSD licence 3.0
-# 
+#
 # Copyright (c) 2013, Tobias Baldauf
 # All rights reserved.
 #
@@ -98,10 +98,10 @@ FILEEXTENSION=${FILE##*.}
 CLEANPATH="${FILE%/*}"
 # If the JPEG is in the same direcctory as Adept, empty the path variable
 # Or if it is set, make sure the path has a trailing slash
-if  [ "$CLEANPATH" == "$FILE" ]; then
+if [ "$CLEANPATH" == "$FILE" ]; then
 	CLEANPATH=""
 else
-	CLEANPATH="$CLEANPATH/"	
+	CLEANPATH="$CLEANPATH/"
 fi
 
 # Storage location for all temporary files during runtime
@@ -118,7 +118,7 @@ TILESIZE="autodetect"
 # Default: 0.333 - only raise/lower in small steps, e.g. 0.175, 0.333, 0.5 etc
 BLACKWHITETHRESHOLD="0.333"
 
-# Setup a global counter for attempts on bwthreshold optimization 
+# Setup a global counter for attempts on bwthreshold optimization
 BWTHRESHOLD_ITERATION_COUNT=0
 
 
@@ -158,10 +158,10 @@ main() {
 # This function can take an optional third parameter when being called to manually define the path to the CLI tool
 function find_tool () {
 	# Define local variables to work with
-    local  __result=$1
-    local  __tool=$2
-    local  __customtoolpath=$3
-    # Array of possible tool locations: name, name as ALL-CAPS, /usr/bin/name, /usr/local/bin/name and custom path
+	local __result=$1
+	local __tool=$2
+	local __customtoolpath=$3
+	# Array of possible tool locations: name, name as ALL-CAPS, /usr/bin/name, /usr/local/bin/name and custom path
 	local __possibletoollocations=(${__tool} ${__tool^^} /usr/bin/${__tool} /usr/local/bin/${__tool} ${__customtoolpath})
 	# For each possible tool location, test if its actually available there
 	for i in "${__possibletoollocations[@]}"; do
@@ -183,20 +183,20 @@ function find_tool () {
 # Validate that we are working on an actual intact JPEG image before launch
 function validate_image {
 	# Define local variables to work with
-    local  __result=$1
-    local  __imagetovalidate=$2
-    # If the script is called without an input file, explain how to use it
+	local __result=$1
+	local __imagetovalidate=$2
+	# If the script is called without an input file, explain how to use it
 	# We don't "exit 1" here anymore because our unit tests source the script
 	# and would abort if "exit 1" was called
-	if  [ ! -f "$__imagetovalidate" ]; then
-		local  __validationresult=0
+	if [ ! -f "$__imagetovalidate" ]; then
+		local __validationresult=0
 		echo "Missing input JPEG. Usage: $0 /path/to/jpeg/image.jpg"
 	else
 		# Use IM identify to read the file magic of the input file to validate it's a JPEG
-		local  __filemagic=$(${IDENTIFY_COMMAND} -format %m "$__imagetovalidate")
+		local __filemagic=$(${IDENTIFY_COMMAND} -format %m "$__imagetovalidate")
 		if [ "$__filemagic" == "JPEG" ] ; then
 			# Set a switch that it is ok to work on the input file, launching the main funtion
-			local  __validationresult=1
+			local __validationresult=1
 		fi
 	fi
 	# Return the result
@@ -206,11 +206,11 @@ function validate_image {
 # Read width (%w) or height (%h) of the input image via IM identify
 function find_image_dimension {
 	# Define local variables to work with
-    local  __result=$1
-    local  __imagetomeasure=$2
-    local  __dimensiontomeasure=$3
-    # Read the width or height of the input image into a global variable
-	local  __imagedimension=$(${IDENTIFY_COMMAND} -format '%'${__dimensiontomeasure} ${__imagetomeasure})
+	local __result=$1
+	local __imagetomeasure=$2
+	local __dimensiontomeasure=$3
+	# Read the width or height of the input image into a global variable
+	local __imagedimension=$(${IDENTIFY_COMMAND} -format '%'${__dimensiontomeasure} ${__imagetomeasure})
 	# Return the result
 	eval $__result="'${__imagedimension}'"
 }
@@ -220,17 +220,17 @@ function find_image_dimension {
 # relations to total image size, so it makes sense to change tile size accordingly
 function optimize_tile_size {
 	# Define local variables to work with
-    local  __result=$1
-    local  __optimaltilesize=$2
-    local  __currentimagewidth=$3
-    local  __currentimageheight=$4
-    # The default "autodetect" setting causes Adept to find a suitable tile size according to image dimensions
-    if [ "$TILESIZE" == "autodetect" ] ; then
+	local __result=$1
+	local __optimaltilesize=$2
+	local __currentimagewidth=$3
+	local __currentimageheight=$4
+	# The default "autodetect" setting causes Adept to find a suitable tile size according to image dimensions
+	if [ "$TILESIZE" == "autodetect" ] ; then
 		# Pick the smaller of the two dimensions of the image as the decisive integer for tile size
-		local  __decisivedimension=${__currentimageheight}
+		local __decisivedimension=${__currentimageheight}
 		if (( $(echo "$IMAGEWIDTH < $__decisivedimension" | bc -l) )); then
 			__decisivedimension=${__currentimagewidth}
-		fi    
+		fi
 		# For a series of sensible steps, change the tile size accordingly
 		if (( $(echo "$__decisivedimension <= 128" | bc -l) )); then
 			__optimaltilesize="8"
@@ -259,29 +259,29 @@ function optimize_tile_size {
 function optimize_bwthreshold()
 {
 	# Define local variables to work with
-    local  __bwthresholdresult=$1
-    local  __filetoprocess=$2
-    local  __bwthreshold=$3
-    local  __actualbwmedian=''
-    # Retrieve the black/white median decimal for the entire image to get an estimate on its complexity / noise level
-    get_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
-    # In case there is too much noise at the current $BLACKWHITETHRESHOLD setting, try to optimize it
-    while (( $(echo "$__actualbwmedian > 50" | bc -l) )) && (( ${BWTHRESHOLD_ITERATION_COUNT} < 5 )); do
+	local __bwthresholdresult=$1
+	local __filetoprocess=$2
+	local __bwthreshold=$3
+	local __actualbwmedian=''
+	# Retrieve the black/white median decimal for the entire image to get an estimate on its complexity / noise level
+	get_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
+	# In case there is too much noise at the current $BLACKWHITETHRESHOLD setting, try to optimize it
+	while (( $(echo "$__actualbwmedian > 50" | bc -l) )) && (( ${BWTHRESHOLD_ITERATION_COUNT} < 5 )); do
 		__bwthreshold=$(echo "scale=4; ${__bwthreshold}+0.1" | bc -l)
 		get_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
 		((BWTHRESHOLD_ITERATION_COUNT++))
-    done
-    # Return result
+	done
+	# Return result
 	eval $__bwthresholdresult="'${__bwthreshold}'"
 }
 
 # Slice the input image into equally sized tiles
 function slice_image_to_ram {
 	# Define local variables to work with
-	local  __filetoprocess=$1
-	local  __currenttilesize=$2
-	local  __currenttilestoragepath=$3
-	# If $DEFAULTCOMPRESSIONRATE is set to "inherit", discover the input JPG quality 
+	local __filetoprocess=$1
+	local __currenttilesize=$2
+	local __currenttilestoragepath=$3
+	# If $DEFAULTCOMPRESSIONRATE is set to "inherit", discover the input JPG quality
 	if [ "$DEFAULTCOMPRESSIONRATE" == "inherit" ] ; then
 		DEFAULTCOMPRESSIONRATE=$(${IDENTIFY_COMMAND} -format "%Q" ${__filetoprocess})
 	fi
@@ -291,14 +291,14 @@ function slice_image_to_ram {
 # For each tile, test if it is suitable for higher compression and if so, proceed
 function estimate_tile_content_complexity_and_compress {
 	# Fill an array with the paths+filenames of all the tiles we have just sliced so that we can work on each of them
-	local  __tilesarray=(${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*.${FILEEXTENSION})
+	local __tilesarray=(${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*.${FILEEXTENSION})
 	# Resort the freshly filled array from ASCII sort order to natural sort order so that filename_100 does not get processed before filename_1
-	local  __tilesarray=($(printf '%s\n' "${__tilesarray[@]}"|sort -V))
+	local __tilesarray=($(printf '%s\n' "${__tilesarray[@]}"|sort -V))
 	# Iterate over every created tile we have listed in our array
 	for((i=0;i<${#__tilesarray[@]};i++)) ; do
 		# Retrieve the black/white median decimal for each tile and store the result in $BWMEDIAN
 		get_black_white_median BWMEDIAN ${__tilesarray[$i]} ${TILESTORAGEPATH} ${BLACKWHITETHRESHOLD}
-		# If the gray channel median is below a defined threshold, the visible area in the current tile is very likely simple & rather monotonous and can safely be exposed to a higher compression rate 
+		# If the gray channel median is below a defined threshold, the visible area in the current tile is very likely simple & rather monotonous and can safely be exposed to a higher compression rate
 		# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
 		if (( $(echo "$BWMEDIAN < 0.825" | bc -l) )); then
 			# Here, we also experimented with bluring/smoothing of tiles to enhance JPEG compression, but results were insignificant
@@ -307,23 +307,23 @@ function estimate_tile_content_complexity_and_compress {
 	done
 }
 
-# Measure the black/white median of a sobel+bw image to use it as an indicator for content complexity 
+# Measure the black/white median of a sobel+bw image to use it as an indicator for content complexity
 function get_black_white_median()
 {
 	# Define local variables to work with
-    local  __result=$1
-    local  __filetomeasure=$2
-    local  __filenameandpath=${__filetomeasure%.jp*g}
-    local  __filenameonly=${__filenameandpath##*/}
-    local  __currenttilestoragepath=$3
-    local  __newbwthreshold=$4
+	local __result=$1
+	local __filetomeasure=$2
+	local __filenameandpath=${__filetomeasure%.jp*g}
+	local __filenameonly=${__filenameandpath##*/}
+	local __currenttilestoragepath=$3
+	local __newbwthreshold=$4
 	# Run an all-directional Sobel edge detection on the tile to discover high contrast borders
 	# These borders are areas JPG compression always has troubles with - so we will tread carefully if we detect them
 	# Then convert the Sobel result to a 2-color black+white image (channel ALL enables us to not lose information in the process) so that we can easily count the pixels
 	# The Threshold parameter is a basic noise filter - anything below it gets dropped so that our b/w-image is actually useful and not just pixelated noise
 	# Then we run identify on the 2-color limited palette PNG8 to retrieve the mean for the gray channel
 	# The result will be a decimal number (or zero) by which we can judge the visible object complexity in the current tile
-    ${CONVERT_COMMAND} ${__filetomeasure} -define convolve:scale='!' -define morphology:compose=Lighten -morphology Convolve 'Sobel:>' "${__currenttilestoragepath}${__filenameonly}_sobel.${FILEEXTENSION}"
+	${CONVERT_COMMAND} ${__filetomeasure} -define convolve:scale='!' -define morphology:compose=Lighten -morphology Convolve 'Sobel:>' "${__currenttilestoragepath}${__filenameonly}_sobel.${FILEEXTENSION}"
 	${CONVERT_COMMAND} "${__currenttilestoragepath}${__filenameonly}_sobel.${FILEEXTENSION}" -channel All -random-threshold "${__newbwthreshold}%" "${__currenttilestoragepath}${__filenameonly}_sobel_bw.png"
 	local __currentbwmedian=$(${IDENTIFY_COMMAND} -channel Gray -format "%[fx:255*mean]" "${__currenttilestoragepath}${__filenameonly}_sobel_bw.png")
 	# Cleanup
@@ -335,9 +335,9 @@ function get_black_white_median()
 # For the reassembly of the image, we need the count of rows and columns of tiles that were created
 function calculate_tile_count_for_reassembly {
 	# Define local variables to work with
-    local  __result=$1
-    local  __currentimagedimension=$2
-    local  __currenttilesize=$3
+	local __result=$1
+	local __currentimagedimension=$2
+	local __currenttilesize=$3
 	# Divide the height by tilesize using bc because Bash cannot handle floating point calculations
 	local __tilecountdecimal=$(echo "scale=4; ${__currentimagedimension}/${__currenttilesize}" | bc -l)
 	# Make use of Bash's behaviour of rounding down to see if we're tilecount = integer + 1
@@ -354,10 +354,10 @@ function calculate_tile_count_for_reassembly {
 
 # Now that we know the number of rows+columns, we use montage to recombine the now partially compressed tiles into a new coherant JPEG image
 function reassemble_tiles_into_final_image {
-	# We're piping the list of filenames to process by montage to "sort -V" to achieve natural sorting so that tilename_2_10.jpg actually is processed after tilename_2_9.jpg and not before tilename_2_1.jpg - otherwise the recombined image would be messed up 
+	# We're piping the list of filenames to process by montage to "sort -V" to achieve natural sorting so that tilename_2_10.jpg actually is processed after tilename_2_9.jpg and not before tilename_2_1.jpg - otherwise the recombined image would be messed up
 	${MONTAGE_COMMAND} -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(ls "${TILESTORAGEPATH}${CLEANFILENAME##*/}"_tile_*.${FILEEXTENSION} | sort -V) "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
 
-	# During montage reassembly, the resulting image received bytes of padding due to the way the JPEG compression algorithm works on tiles not sized as a multiple of 8   
+	# During montage reassembly, the resulting image received bytes of padding due to the way the JPEG compression algorithm works on tiles not sized as a multiple of 8
 	# So we run jpegrescan on the final image to losslessly remove this padding and make the output JPG progressive
 	${JPEGRESCAN_COMMAND} -q -s "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
 

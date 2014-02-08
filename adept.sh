@@ -29,7 +29,7 @@
 #
 #	* ImageMagick >= v.6.6
 #
-# 	* JPEGOptim
+# * JPEGOptim
 #
 #	* JPEGRescan Perl Script for lossless JPG compression
 #	 http://github.com/kud/jpegrescan
@@ -42,7 +42,7 @@
 #
 # This software is published under the BSD licence 3.0
 #
-# Copyright (c) 2013, Tobias Baldauf
+# Copyright (c) 2013-2014, Tobias Baldauf
 # All rights reserved.
 #
 # Mail: kontakt@tobias-baldauf.de
@@ -117,9 +117,6 @@ TILESIZE="autodetect"
 # Control noise threshold for tiles. Higher threshold leads to more tiles being marked as compressable at the cost of image quality
 # Default: 0.333 - only raise/lower in small steps, e.g. 0.175, 0.333, 0.5 etc
 BLACKWHITETHRESHOLD="0.333"
-
-# Setup a global counter for attempts on bwthreshold optimization
-BWTHRESHOLD_ITERATION_COUNT=0
 
 
 
@@ -263,13 +260,14 @@ function optimize_bwthreshold()
 	local __filetoprocess=$2
 	local __bwthreshold=$3
 	local __actualbwmedian=''
+	local __bwthreshold_iteration_count=0
 	# Retrieve the black/white median decimal for the entire image to get an estimate on its complexity / noise level
 	get_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
 	# In case there is too much noise at the current $BLACKWHITETHRESHOLD setting, try to optimize it
-	while (( $(echo "$__actualbwmedian > 50" | bc -l) )) && (( ${BWTHRESHOLD_ITERATION_COUNT} < 5 )); do
+	while (( $(echo "$__actualbwmedian > 50" | bc -l) )) && (( ${__bwthreshold_iteration_count} < 5 )); do
 		__bwthreshold=$(echo "scale=4; ${__bwthreshold}+0.1" | bc -l)
 		get_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
-		((BWTHRESHOLD_ITERATION_COUNT++))
+		((__bwthreshold_iteration_count++))
 	done
 	# Return result
 	eval $__bwthresholdresult="'${__bwthreshold}'"

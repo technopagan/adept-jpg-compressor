@@ -51,14 +51,14 @@ source "${BATS_TEST_DIRNAME}/../adept.sh" >/dev/null 2>/dev/null
 
 @test "Retrieve Black/White Median" {
   FILEEXTENSION='jpg'
-  get_black_white_median BWMEDIAN "test.jpg" "$BATS_TMPDIR/" ${BLACKWHITETHRESHOLD}
+  get_full_image_black_white_median BWMEDIAN "test.jpg" "$BATS_TMPDIR/" ${BLACKWHITETHRESHOLD}
   result=${BWMEDIAN}
   [ "$(echo $result '==' 2.00775 | bc -l)" -eq 1 ]
   rm -f "$BATS_TMPDIR/.*.jpe*g"
 }
 
 @test "Calculate Tile Count for Reassembly" {
-  calculate_tile_count_for_reassembly TILEROWS 512 32
+  calculate_tile_count TILEROWS 512 32
   result=${TILEROWS}
   [ "$result" -eq 16 ]
 }

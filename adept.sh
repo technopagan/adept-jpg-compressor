@@ -137,11 +137,11 @@ main() {
 	find_image_dimension IMAGEWIDTH "${FILE}" 'w'
 	find_image_dimension IMAGEHEIGHT "${FILE}" 'h'
 	optimize_tile_size TILESIZE ${TILESIZE} ${IMAGEWIDTH} ${IMAGEHEIGHT}
+	calculate_tile_count TILEROWS ${IMAGEHEIGHT} ${TILESIZE}
+	calculate_tile_count TILECOLUMNS ${IMAGEWIDTH} ${TILESIZE}
 	optimize_bwthreshold BLACKWHITETHRESHOLD "${FILE}" ${BLACKWHITETHRESHOLD}
 	slice_image_to_ram "${FILE}" ${TILESIZE} ${TILESTORAGEPATH}
-	estimate_tile_content_complexity_and_compress
-	calculate_tile_count_for_reassembly TILEROWS ${IMAGEHEIGHT} ${TILESIZE}
-	calculate_tile_count_for_reassembly TILECOLUMNS ${IMAGEWIDTH} ${TILESIZE}
+	estimate_content_complexity_and_compress
 	reassemble_tiles_into_final_image
 }
 
@@ -178,7 +178,7 @@ function find_tool () {
 }
 
 # Validate that we are working on an actual intact JPEG image before launch
-function validate_image {
+function validate_image () {
 	# Define local variables to work with
 	local __result=$1
 	local __imagetovalidate=$2
@@ -201,7 +201,7 @@ function validate_image {
 }
 
 # Read width (%w) or height (%h) of the input image via IM identify
-function find_image_dimension {
+function find_image_dimension () {
 	# Define local variables to work with
 	local __result=$1
 	local __imagetomeasure=$2
@@ -215,7 +215,7 @@ function find_image_dimension {
 # Tile size is the no.1 performance bottleneck for Adept, so it is important we pick an optimal tile size for the input image dimensions
 # Also, the number of tiles to be recombined affects compression efficiency and salient areas within an image tend to have similar dimensional
 # relations to total image size, so it makes sense to change tile size accordingly
-function optimize_tile_size {
+function optimize_tile_size () {
 	# Define local variables to work with
 	local __result=$1
 	local __optimaltilesize=$2
@@ -253,8 +253,7 @@ function optimize_tile_size {
 }
 
 # Determine a threshold value that has a good signal to noise ratio for the input image
-function optimize_bwthreshold()
-{
+function optimize_bwthreshold () {
 	# Define local variables to work with
 	local __bwthresholdresult=$1
 	local __filetoprocess=$2
@@ -262,11 +261,11 @@ function optimize_bwthreshold()
 	local __actualbwmedian=''
 	local __bwthreshold_iteration_count=0
 	# Retrieve the black/white median decimal for the entire image to get an estimate on its complexity / noise level
-	get_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
+	get_full_image_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
 	# In case there is too much noise at the current $BLACKWHITETHRESHOLD setting, try to optimize it
 	while (( $(echo "$__actualbwmedian > 50" | bc -l) )) && (( ${__bwthreshold_iteration_count} < 5 )); do
 		__bwthreshold=$(echo "scale=4; ${__bwthreshold}+0.1" | bc -l)
-		get_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
+		get_full_image_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
 		((__bwthreshold_iteration_count++))
 	done
 	# Return result
@@ -274,7 +273,7 @@ function optimize_bwthreshold()
 }
 
 # Slice the input image into equally sized tiles
-function slice_image_to_ram {
+function slice_image_to_ram () {
 	# Define local variables to work with
 	local __filetoprocess=$1
 	local __currenttilesize=$2
@@ -287,51 +286,66 @@ function slice_image_to_ram {
 }
 
 # For each tile, test if it is suitable for higher compression and if so, proceed
-function estimate_tile_content_complexity_and_compress {
-	# Fill an array with the paths+filenames of all the tiles we have just sliced so that we can work on each of them
-	local __tilesarray=(${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*.${FILEEXTENSION})
-	# Resort the freshly filled array from ASCII sort order to natural sort order so that filename_100 does not get processed before filename_1
-	local __tilesarray=($(printf '%s\n' "${__tilesarray[@]}"|sort -V))
-	# Iterate over every created tile we have listed in our array
-	for((i=0;i<${#__tilesarray[@]};i++)) ; do
-		# Retrieve the black/white median decimal for each tile and store the result in $BWMEDIAN
-		get_black_white_median BWMEDIAN ${__tilesarray[$i]} ${TILESTORAGEPATH} ${BLACKWHITETHRESHOLD}
-		# If the gray channel median is below a defined threshold, the visible area in the current tile is very likely simple & rather monotonous and can safely be exposed to a higher compression rate
-		# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
-		if (( $(echo "$BWMEDIAN < 0.825" | bc -l) )); then
-			# Here, we also experimented with bluring/smoothing of tiles to enhance JPEG compression, but results were insignificant
-			${JPEGOPTIM_COMMAND} --max=${HIGHCOMPRESSIONRATE} -t -v --strip-all ${__tilesarray[$i]} >/dev/null 2>/dev/null
-		fi
+function estimate_content_complexity_and_compress () {
+	# Let's create a walker that iterates over the sobeled and b/w reduced full size image
+	# This way, the edge detection happens only in memory and does not need additional tiles to be created on the filesystem
+	# The walker inputs X+Y coordinates and only analyses a single tile's size on that spot within the image
+	# The exception to this being when we are close to the image's end and we have to reduce tile size to whatever is left vertically or horizontally
+	for((y=0;y<$TILEROWS;y++)) ; do
+		for((x=0;x<$TILECOLUMNS;x++)) ; do
+			# Reset tile dimensions for each run because we need to check them anew each time
+			local __currenttileheight=${TILESIZE}
+			local __currenttilewidth=${TILESIZE}
+			# define handlers of current row+column, including the very last ones (== $TILEROWS or $TILECOLUMNS), so we can point the JPEG compressor to the correct tile file
+			local __currenttilerow=${y}
+			local __currenttilecolumn=${x}
+			# If we are nearing the end of the image height, reduce tile size to whatever is left vertically
+			if (( $(echo "$y+1 == $TILEROWS" | bc -l) )) && (( $(echo "$TILEROWS*${__currenttileheight} > ${IMAGEHEIGHT}" | bc -l) )); then
+				__currenttileheight=$(echo "(($y+1)*${TILESIZE})-${IMAGEHEIGHT}" | bc -l)
+				__currenttilerow=$(echo "($y+1)" | bc -l)
+			fi
+			# And if we are nearing the end of the image width, reduce tile size to whatever is left horizontally
+			if (( $(echo "$x+1 == $TILECOLUMNS" | bc -l) )) && (( $(echo "$TILECOLUMNS*${__currenttilewidth} > ${IMAGEWIDTH}" | bc -l) )); then
+				__currenttilewidth=$(echo "(($x+1)*${TILESIZE})-${IMAGEWIDTH}" | bc -l)
+				__currenttilecolumn=$(echo "($x+1)" | bc -l)
+			fi
+			# Run identify on the 2-color limited palette PNG8 to retrieve the mean for the gray channel
+			# In this case we are using coordinates and dynamic tile sizes according to the walker logic we have created in order to dynamically view a specific image area without creating actual tiles for it
+			# The result will be a decimal number (or zero) by which we can judge the visible object complexity in the current tile
+			local __currentbwmedian=$(identify -size "${IMAGEWIDTH}"x"${IMAGEHEIGHT}" -channel Gray -format "%[fx:255*mean]" "${TILESTORAGEPATH}${CLEANFILENAME##*/}_sobel_bw.png["${__currenttilewidth}"x"${__currenttileheight}"+$(echo $((${x}*${__currenttilewidth})))+$(echo $((${y}*${__currenttileheight})))]")
+			# If the gray channel median is below a defined threshold, the visible area in the current tile is very likely simple & rather monotonous and can safely be exposed to a higher compression rate
+			# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
+			if (( $(echo "$__currentbwmedian < 0.825" | bc -l) )); then
+				# We experimented with bluring/smoothing of tiles here to enhance JPEG compression, but results were insignificant
+				${JPEGOPTIM_COMMAND} --max=${HIGHCOMPRESSIONRATE} -t -v --strip-all ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_"${__currenttilerow}"x"${__currenttilecolumn}".${FILEEXTENSION} >/dev/null 2>/dev/null
+			fi
+		done
 	done
 }
 
 # Measure the black/white median of a sobel+bw image to use it as an indicator for content complexity
-function get_black_white_median()
-{
+function get_full_image_black_white_median () {
 	# Define local variables to work with
 	local __result=$1
-	local __filetomeasure=$2
-	local __filenameandpath=${__filetomeasure%.jp*g}
-	local __filenameonly=${__filenameandpath##*/}
-	local __currenttilestoragepath=$3
-	local __newbwthreshold=$4
-	# Run an all-directional Sobel edge detection on the tile to discover high contrast borders
+	local __imagetomeasure=$2
+	local __imagenameandpath=${__imagetomeasure%.jp*g}
+	local __imagenameonly=${__imagenameandpath##*/}
+	local __currentimagestoragepath=$3
+	local __bwthreshold=$4
+	# Run an all-directional Sobel edge detection to discover high contrast borders
 	# These borders are areas JPG compression always has troubles with - so we will tread carefully if we detect them
 	# Then convert the Sobel result to a 2-color black+white image (channel ALL enables us to not lose information in the process) so that we can easily count the pixels
 	# The Threshold parameter is a basic noise filter - anything below it gets dropped so that our b/w-image is actually useful and not just pixelated noise
-	# Then we run identify on the 2-color limited palette PNG8 to retrieve the mean for the gray channel
+	${CONVERT_COMMAND} ${__imagetomeasure} -define convolve:scale='!' -define morphology:compose=Lighten -morphology Convolve 'Sobel:>' "${FILEEXTENSION}:-" | ${CONVERT_COMMAND} - -channel All -random-threshold "${__bwthreshold}%" "${__currentimagestoragepath}${__imagenameonly}_sobel_bw.png"
+	# Run identify on the 2-color limited palette PNG8 to retrieve the mean for the gray channel
 	# The result will be a decimal number (or zero) by which we can judge the visible object complexity in the current tile
-	${CONVERT_COMMAND} ${__filetomeasure} -define convolve:scale='!' -define morphology:compose=Lighten -morphology Convolve 'Sobel:>' "${__currenttilestoragepath}${__filenameonly}_sobel.${FILEEXTENSION}"
-	${CONVERT_COMMAND} "${__currenttilestoragepath}${__filenameonly}_sobel.${FILEEXTENSION}" -channel All -random-threshold "${__newbwthreshold}%" "${__currenttilestoragepath}${__filenameonly}_sobel_bw.png"
-	local __currentbwmedian=$(${IDENTIFY_COMMAND} -channel Gray -format "%[fx:255*mean]" "${__currenttilestoragepath}${__filenameonly}_sobel_bw.png")
-	# Cleanup
-	rm ${__currenttilestoragepath}${__filenameonly}_sobel.${FILEEXTENSION} ${__currenttilestoragepath}${__filenameonly}_sobel_bw.png
+	local __currentbwmedian=$(${IDENTIFY_COMMAND} -channel Gray -format "%[fx:255*mean]" "${__currentimagestoragepath}${__imagenameonly}_sobel_bw.png")
 	# Return result
 	eval $__result="'${__currentbwmedian}'"
 }
 
 # For the reassembly of the image, we need the count of rows and columns of tiles that were created
-function calculate_tile_count_for_reassembly {
+function calculate_tile_count () {
 	# Define local variables to work with
 	local __result=$1
 	local __currentimagedimension=$2
@@ -351,7 +365,7 @@ function calculate_tile_count_for_reassembly {
 }
 
 # Now that we know the number of rows+columns, we use montage to recombine the now partially compressed tiles into a new coherant JPEG image
-function reassemble_tiles_into_final_image {
+function reassemble_tiles_into_final_image () {
 	# We're piping the list of filenames to process by montage to "sort -V" to achieve natural sorting so that tilename_2_10.jpg actually is processed after tilename_2_9.jpg and not before tilename_2_1.jpg - otherwise the recombined image would be messed up
 	${MONTAGE_COMMAND} -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(ls "${TILESTORAGEPATH}${CLEANFILENAME##*/}"_tile_*.${FILEEXTENSION} | sort -V) "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
 
@@ -359,7 +373,8 @@ function reassemble_tiles_into_final_image {
 	# So we run jpegrescan on the final image to losslessly remove this padding and make the output JPG progressive
 	${JPEGRESCAN_COMMAND} -q -s "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
 
-	# Cleanup the temporary tiles
+	# Cleanup temporary files
+	rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_sobel_bw.png
 	rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*.${FILEEXTENSION}
 }
 

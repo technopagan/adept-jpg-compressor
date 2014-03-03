@@ -8,18 +8,17 @@
 #
 ###############################################################################
 #
-# Brief overview of the script's mode of operation:
+# Brief overview of the mode of operation:
 #
 # The input JPG gets sliced into tiles, sized as a multiple of 8 due to the
-# nature of the JPG algorithm. The tiles are run through an all-directional
-# Sobel Edge Detect algorithm. The resulting tiles get further reduced to
-# 2-color black+white PNGs with limited palette.
+# nature of JPG compression. The image is also run through an all-directional
+# Sobel Edge Detect algorithm. This images gets further reduced to a
+# 2-color black+white PNG.
 #
-# These PNGs are ideal to analyse the gray channel mean value and use it
-# as a single integer indicator to judge the perceivable complexity of
-# the current image segment.
+# This bi-color PNG is ideal to analyse areas gray channel mean value and use
+# it as a single integer indicator to judge its perceivable complexity.
 #
-# Tiles with low complexity contents get compressed stronger than others.
+# Areas with low complexity contents are then exposed to heavier compression.
 # At reassemlby, this leads to savings in image bytesize while maintaining
 # good visual quality because no compression artefacts occur in areas of
 # high-complexity or sharp contrasts.
@@ -375,7 +374,7 @@ function reassemble_tiles_into_final_image () {
 
 	# Cleanup temporary files
 	rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_sobel_bw.png
-	rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*.${FILEEXTENSION}
+	# rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*.${FILEEXTENSION}
 }
 
 # Initiate preparatory checks

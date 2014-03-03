@@ -6,7 +6,7 @@ Adept - the adaptive JPG Compressor
 * Remember: Adept is a **Linux commandline tool**
 * Make sure you have [ImageMagick](http://www.imagemagick.org/), [Jpegoptim](https://github.com/tjko/jpegoptim) and [JPEGrescan](https://github.com/kud/jpegrescan) installed & useable. All but JPEGrescan are available in all major Linux distributions.
 * Fetch a copy of [adept.sh](https://raw.github.com/technopagan/adept-jpg-compressor/master/adept.sh) and place it somewhere you deem a good place for 3rd party shellscripts, e.g. "/usr/local/bin". Make sure the location is in the PATH of the user(s) who will run adept.sh and ensure that the script is executable (chmod -x).
-* Congratulations! You can now run "bash adept.sh /path/to/image.jpg" to compress JPEGs 3-5% more successfully. 
+* Congratulations! You can now run "bash adept.sh /path/to/image.jpg" to compress JPEGs 3-5% more successfully.
 
 
 ## Introduction
@@ -20,7 +20,7 @@ Note that adaptive JPEG compression is already implemented in tools such as Adob
 ## Adept Workflow
 
 [![Adept Workflow Diagram](images/adept-workflow.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/adept-workflow.jpg)
-Adept works by splitting up the input image into tiles of equal size and then running the [Sobel Edge Detection algorithm](http://en.wikipedia.org/wiki/Sobel_operator) on them. The Sobel tiles are then reduced to two colors to make the black & white pixels in each tile easily countable. 
+Adept works by splitting up the input image into tiles of equal size and then running the [Sobel Edge Detection algorithm](http://en.wikipedia.org/wiki/Sobel_operator) on them. The Sobel tiles are then reduced to two colors to make the black & white pixels in each tile easily countable.
 
 The ratio of black & white pixels in each tile is the decisive factor for exposing a tile to default or higher compression rates. After all tiles are processed and possibly more heavily compressed in this manner, they are reassembled into the output image.
 
@@ -38,7 +38,7 @@ Using popular commandline tools for JPG compression, we can achieve a 2.04% smal
 
 **Adept - 107,2 kB**
 [![Beach Adept](images/01-03-beach_adept_compress.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-03-beach_adept_compress.jpg)
-With Adept, the filesize is reduced by 4.88%. Slight artefacts can be perceived when zooming in closely on the horizon's blue gradiant because Adept identified the sky as an area of low complexity and thus compressed it more heavily. No artifacts are present at any of the key areas of the image, however (parasol, canvas chair, horizon border, sea-to-sand border etc). 
+With Adept, the filesize is reduced by 4.88%. Slight artefacts can be perceived when zooming in closely on the horizon's blue gradiant because Adept identified the sky as an area of low complexity and thus compressed it more heavily. No artifacts are present at any of the key areas of the image, however (parasol, canvas chair, horizon border, sea-to-sand border etc).
 
 **Adobe Fireworks + @pornelski's ImageOptim - 106,9 kB**
 [![Beach Adobe Fireworks and ImageOptim](images/01-04-beach-Adobe-Fireworks-plus-ImageOptim-identical-quality-settings.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-04-beach-Adobe-Fireworks-plus-ImageOptim-identical-quality-settings.jpg)
@@ -84,7 +84,7 @@ In alphabetical order:
 ## Licence
 
 This software is published under the BSD licence 3.0
- 
+
 Copyright (c) 2013, Tobias Baldauf
 All rights reserved.
 

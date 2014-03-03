@@ -123,7 +123,7 @@ BLACKWHITETHRESHOLD="0.333"
 # MAIN PROGRAM
 ###############################################################################
 
-prepwork() {
+prepwork () {
 	find_tool IDENTIFY_COMMAND identify
 	find_tool CONVERT_COMMAND convert
 	find_tool MONTAGE_COMMAND montage
@@ -132,7 +132,7 @@ prepwork() {
 	validate_image VALIDJPEG "${FILE}"
 }
 
-main() {
+main () {
 	find_image_dimension IMAGEWIDTH "${FILE}" 'w'
 	find_image_dimension IMAGEHEIGHT "${FILE}" 'h'
 	optimize_tile_size TILESIZE ${TILESIZE} ${IMAGEWIDTH} ${IMAGEHEIGHT}

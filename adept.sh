@@ -316,7 +316,7 @@ function estimate_content_complexity_and_compress () {
 			# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
 			if (( $(echo "$__currentbwmedian < 0.825" | bc -l) )); then
 				# We experimented with bluring/smoothing of tiles here to enhance JPEG compression, but results were insignificant
-				${JPEGOPTIM_COMMAND} --max=${HIGHCOMPRESSIONRATE} -t -v --strip-all ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_"${__currenttilerow}"x"${__currenttilecolumn}".${FILEEXTENSION} >/dev/null 2>/dev/null
+				${JPEGOPTIM_COMMAND} --max=${HIGHCOMPRESSIONRATE} --strip-all --strip-iptc --strip-icc ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_"${__currenttilerow}"x"${__currenttilecolumn}".${FILEEXTENSION} >/dev/null 2>/dev/null
 			fi
 		done
 	done

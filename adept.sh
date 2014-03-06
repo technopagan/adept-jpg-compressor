@@ -281,11 +281,13 @@ function slice_image_to_ram () {
 	if [ "$DEFAULTCOMPRESSIONRATE" == "inherit" ] ; then
 		DEFAULTCOMPRESSIONRATE=$(${IDENTIFY_COMMAND} -format "%Q" ${__filetoprocess})
 	fi
-	${CONVERT_COMMAND} "$__filetoprocess" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -define jpeg:dct-method=float -crop "${__currenttilesize}"x"${__currenttilesize}" -set filename:tile "%[fx:page.y/${__currenttilesize}+1]x%[fx:page.x/${__currenttilesize}+1]" +repage +adjoin "${__currenttilestoragepath}${CLEANFILENAME##*/}_tile_%[filename:tile].${FILEEXTENSION}"
+	${CONVERT_COMMAND} "$__filetoprocess" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -define jpeg:dct-method=float -crop "${__currenttilesize}"x"${__currenttilesize}" +repage +adjoin "${__currenttilestoragepath}tile_tmp_%04d_${CLEANFILENAME##*/}.${FILEEXTENSION}"
 }
 
 # For each tile, test if it is suitable for higher compression and if so, proceed
 function estimate_content_complexity_and_compress () {
+	# Set up a counter so we keep track of the full name of the current temporary tile to work on
+	local __currenttilecount=0
 	# Let's create a walker that iterates over the sobeled and b/w reduced full size image
 	# This way, the edge detection happens only in memory and does not need additional tiles to be created on the filesystem
 	# The walker inputs X+Y coordinates and only analyses a single tile's size on that spot within the image
@@ -295,9 +297,8 @@ function estimate_content_complexity_and_compress () {
 			# Reset tile dimensions for each run because we need to check them anew each time
 			local __currenttileheight=${TILESIZE}
 			local __currenttilewidth=${TILESIZE}
-			# define handlers of current row+column, including the very last ones (== $TILEROWS or $TILECOLUMNS), so we can point the JPEG compressor to the correct tile file
-			local __currenttilerow=${y}
-			local __currenttilecolumn=${x}
+			# Count up the processed tile number
+			((__currenttilecount++))
 			# If we are nearing the end of the image height, reduce tile size to whatever is left vertically
 			if (( $(echo "$y+1 == $TILEROWS" | bc -l) )) && (( $(echo "$TILEROWS*${__currenttileheight} > ${IMAGEHEIGHT}" | bc -l) )); then
 				__currenttileheight=$(echo "(($y+1)*${TILESIZE})-${IMAGEHEIGHT}" | bc -l)
@@ -316,7 +317,7 @@ function estimate_content_complexity_and_compress () {
 			# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
 			if (( $(echo "$__currentbwmedian < 0.825" | bc -l) )); then
 				# We experimented with bluring/smoothing of tiles here to enhance JPEG compression, but results were insignificant
-				${JPEGOPTIM_COMMAND} --max=${HIGHCOMPRESSIONRATE} --strip-all --strip-iptc --strip-icc ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_"${__currenttilerow}"x"${__currenttilecolumn}".${FILEEXTENSION} >/dev/null 2>/dev/null
+				${JPEGOPTIM_COMMAND} --max=${HIGHCOMPRESSIONRATE} --strip-all --strip-iptc --strip-icc ${TILESTORAGEPATH}tile_tmp_"${__currenttilecount}"_${CLEANFILENAME##*/}.${FILEEXTENSION} >/dev/null 2>/dev/null
 			fi
 		done
 	done
@@ -365,16 +366,16 @@ function calculate_tile_count () {
 
 # Now that we know the number of rows+columns, we use montage to recombine the now partially compressed tiles into a new coherant JPEG image
 function reassemble_tiles_into_final_image () {
-	# We're piping the list of filenames to process by montage to "sort -V" to achieve natural sorting so that tilename_2_10.jpg actually is processed after tilename_2_9.jpg and not before tilename_2_1.jpg - otherwise the recombined image would be messed up
-	${MONTAGE_COMMAND} -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(ls "${TILESTORAGEPATH}${CLEANFILENAME##*/}"_tile_*.${FILEEXTENSION} | sort -V) "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
+	# Use montage to reassemble the individual, partially optimized tiles into a new consistent JPEG image
+	${MONTAGE_COMMAND} -quiet -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(ls "${TILESTORAGEPATH}"tile_tmp_*_"${CLEANFILENAME##*/}".${FILEEXTENSION}) "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} >/dev/null 2>/dev/null
 
 	# During montage reassembly, the resulting image received bytes of padding due to the way the JPEG compression algorithm works on tiles not sized as a multiple of 8
 	# So we run jpegrescan on the final image to losslessly remove this padding and make the output JPG progressive
-	${JPEGRESCAN_COMMAND} -q -s "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} "${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
+	${JPEGRESCAN_COMMAND} -q -s "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
 
 	# Cleanup temporary files
 	rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_sobel_bw.png
-	# rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_tile_*.${FILEEXTENSION}
+	rm ${TILESTORAGEPATH}tile_tmp_*_${CLEANFILENAME##*/}.${FILEEXTENSION}
 }
 
 # Initiate preparatory checks

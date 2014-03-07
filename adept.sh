@@ -28,13 +28,13 @@
 #
 #	* ImageMagick >= v.6.6
 #
-# * JPEGOptim
+#	* JPEGOptim
 #
 #	* JPEGRescan Perl Script for lossless JPG compression
 #	 http://github.com/kud/jpegrescan
 #
-# Note: Additonal tools are required to run Adept, such as "bc", "sort",
-# "rm" and Bash 4.x. As all of these tools are provided by lsbcore, core-utils
+# Note: Additonal tools are required to run Adept, such as "bc",
+# "find", "rm" and Bash 3.x. As all of these tools are provided by lsbcore, core-utils
 # or similar default packages, we can expect them to be always available.
 #
 ###############################################################################

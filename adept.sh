@@ -106,6 +106,11 @@ fi
 # Storage location for all temporary files during runtime
 # Use locations like /dev/shm (/run/shm/ in Ubuntu) to save files in Shared Memory Space (RAM) to avoid disk i/o troubles
 TILESTORAGEPATH="/dev/shm/"
+# Check if the directory for temporary image storage during runtime actually exists (honoring symlinks)
+# In case it does not, fall back to using "/tmp/" because it is very likely available on all Unix systems
+if [ ! -d "$TILESTORAGEPATH" ]; then
+	TILESTORAGEPATH="/tmp/"
+fi
 
 # Square dimensions for all temporary tiles. Tile size heavily influences compression efficiency at the cost of runtime performance
 # E.g. a tile size of 8 yields maximum compression results while taking several minutes of runtime

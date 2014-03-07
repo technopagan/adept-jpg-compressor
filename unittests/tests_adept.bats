@@ -41,7 +41,7 @@ source "${BATS_TEST_DIRNAME}/../adept.sh" >/dev/null 2>/dev/null
   CLEANFILENAME='test'
   FILEEXTENSION='jpg'
   slice_image_to_ram "test.jpg" 32 "$BATS_TMPDIR/"
-  TILESARRAY=($(find "$BATS_TMPDIR/" -maxdepth 1 -iregex ".*.jpe*g"))
+  TILESARRAY=($(find "$BATS_TMPDIR/" -maxdepth 1 -iregex ".*$CLEANFILENAME.jpe*g"))
   result=${#TILESARRAY[@]}
   [ "$result" -eq 256 ]
   rm -f "$BATS_TMPDIR/.*.jpe*g"
@@ -53,6 +53,7 @@ source "${BATS_TEST_DIRNAME}/../adept.sh" >/dev/null 2>/dev/null
   FILEEXTENSION='jpg'
   get_full_image_black_white_median BWMEDIAN "test.jpg" "$BATS_TMPDIR/" ${BLACKWHITETHRESHOLD}
   result=${BWMEDIAN}
+  echo $result
   [ "$(echo $result '==' 2.00775 | bc -l)" -eq 1 ]
   rm -f "$BATS_TMPDIR/.*.jpe*g"
 }

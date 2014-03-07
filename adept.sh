@@ -367,7 +367,7 @@ function calculate_tile_count () {
 # Now that we know the number of rows+columns, we use montage to recombine the now partially compressed tiles into a new coherant JPEG image
 function reassemble_tiles_into_final_image () {
 	# Use montage to reassemble the individual, partially optimized tiles into a new consistent JPEG image
-	${MONTAGE_COMMAND} -quiet -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(ls "${TILESTORAGEPATH}"tile_tmp_*_"${CLEANFILENAME##*/}".${FILEEXTENSION}) "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} >/dev/null 2>/dev/null
+	${MONTAGE_COMMAND} -quiet -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(find "${TILESTORAGEPATH}" -maxdepth 1 -type f -name "tile_tmp_*_${CLEANFILENAME##*/}.${FILEEXTENSION}") "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} >/dev/null 2>/dev/null
 
 	# During montage reassembly, the resulting image received bytes of padding due to the way the JPEG compression algorithm works on tiles not sized as a multiple of 8
 	# So we run jpegrescan on the final image to losslessly remove this padding and make the output JPG progressive
@@ -375,7 +375,8 @@ function reassemble_tiles_into_final_image () {
 
 	# Cleanup temporary files
 	rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_sobel_bw.png
-	rm ${TILESTORAGEPATH}tile_tmp_*_${CLEANFILENAME##*/}.${FILEEXTENSION}
+	# We are using find to circumvent issues on Kernel based shell limitations when iterating over a large number of files with rm
+	find "${TILESTORAGEPATH}" -maxdepth 1 -type f -name "tile_tmp_*_${CLEANFILENAME##*/}.${FILEEXTENSION}" -exec rm {} \;
 }
 
 # Initiate preparatory checks

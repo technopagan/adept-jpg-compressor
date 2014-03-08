@@ -286,7 +286,7 @@ function slice_image_to_ram () {
 	if [ "$DEFAULTCOMPRESSIONRATE" == "inherit" ] ; then
 		DEFAULTCOMPRESSIONRATE=$(${IDENTIFY_COMMAND} -format "%Q" ${__filetoprocess})
 	fi
-	${CONVERT_COMMAND} "$__filetoprocess" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -define jpeg:dct-method=float -crop "${__currenttilesize}"x"${__currenttilesize}" +repage +adjoin "${__currenttilestoragepath}tile_tmp_%06_${CLEANFILENAME##*/}.${FILEEXTENSION}"
+	${CONVERT_COMMAND} "$__filetoprocess" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -define jpeg:dct-method=float -crop "${__currenttilesize}"x"${__currenttilesize}" +repage +adjoin "${__currenttilestoragepath}tile_tmp_%06d_${CLEANFILENAME##*/}.${FILEEXTENSION}"
 }
 
 # For each tile, test if it is suitable for higher compression and if so, proceed

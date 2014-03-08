@@ -286,7 +286,7 @@ function slice_image_to_ram () {
 	if [ "$DEFAULTCOMPRESSIONRATE" == "inherit" ] ; then
 		DEFAULTCOMPRESSIONRATE=$(${IDENTIFY_COMMAND} -format "%Q" ${__filetoprocess})
 	fi
-	${CONVERT_COMMAND} "$__filetoprocess" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -define jpeg:dct-method=float -crop "${__currenttilesize}"x"${__currenttilesize}" +repage +adjoin "${__currenttilestoragepath}tile_tmp_%04d_${CLEANFILENAME##*/}.${FILEEXTENSION}"
+	${CONVERT_COMMAND} "$__filetoprocess" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -define jpeg:dct-method=float -crop "${__currenttilesize}"x"${__currenttilesize}" +repage +adjoin "${__currenttilestoragepath}tile_tmp_%05d_${CLEANFILENAME##*/}.${FILEEXTENSION}"
 }
 
 # For each tile, test if it is suitable for higher compression and if so, proceed
@@ -302,8 +302,10 @@ function estimate_content_complexity_and_compress () {
 			# Reset tile dimensions for each run because we need to check them anew each time
 			local __currenttileheight=${TILESIZE}
 			local __currenttilewidth=${TILESIZE}
-			# Count up the processed tile number
-			((__currenttilecount++))
+			# Count up the processed tile number and setting it to Base10 because we will be padding it with leading zeros and Bash would interprete the integer as Base8 per default
+			__currenttilecount=$(( 10#$__currenttilecount + 1 ))
+			# Prepend leading zeros to the counter so the integer matches the numbers handed out to the filename by ImageMagick
+			__currenttilecount=$(printf "%05d" $__currenttilecount);
 			# If we are nearing the end of the image height, reduce tile size to whatever is left vertically
 			if (( $(echo "$y+1 == $TILEROWS" | bc -l) )) && (( $(echo "$TILEROWS*${__currenttileheight} > ${IMAGEHEIGHT}" | bc -l) )); then
 				__currenttileheight=$(echo "(($y+1)*${TILESIZE})-${IMAGEHEIGHT}" | bc -l)
@@ -321,8 +323,8 @@ function estimate_content_complexity_and_compress () {
 			# If the gray channel median is below a defined threshold, the visible area in the current tile is very likely simple & rather monotonous and can safely be exposed to a higher compression rate
 			# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
 			if (( $(echo "$__currentbwmedian < 0.825" | bc -l) )); then
-				# We experimented with bluring/smoothing of tiles here to enhance JPEG compression, but results were insignificant
-				${JPEGOPTIM_COMMAND} --max=${HIGHCOMPRESSIONRATE} --strip-all --strip-iptc --strip-icc ${TILESTORAGEPATH}tile_tmp_"${__currenttilecount}"_${CLEANFILENAME##*/}.${FILEEXTENSION} >/dev/null 2>/dev/null
+				# We experimented with blurring/smoothing of tiles here to enhance JPEG compression, but results were insignificant
+				${JPEGOPTIM_COMMAND} --max=${HIGHCOMPRESSIONRATE} --strip-all --strip-iptc --strip-icc "${TILESTORAGEPATH}"tile_tmp_"${__currenttilecount}"_"${CLEANFILENAME##*/}"."${FILEEXTENSION}" >/dev/null 2>/dev/null
 			fi
 		done
 	done
@@ -372,7 +374,7 @@ function calculate_tile_count () {
 # Now that we know the number of rows+columns, we use montage to recombine the now partially compressed tiles into a new coherant JPEG image
 function reassemble_tiles_into_final_image () {
 	# Use montage to reassemble the individual, partially optimized tiles into a new consistent JPEG image
-	${MONTAGE_COMMAND} -quiet -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(find "${TILESTORAGEPATH}" -maxdepth 1 -type f -name "tile_tmp_*_${CLEANFILENAME##*/}.${FILEEXTENSION}") "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} >/dev/null 2>/dev/null
+	${MONTAGE_COMMAND} -quiet -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(find "${TILESTORAGEPATH}" -maxdepth 1 -type f -name "tile_tmp_*_${CLEANFILENAME##*/}.${FILEEXTENSION}" | sort) "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} >/dev/null 2>/dev/null
 
 	# During montage reassembly, the resulting image received bytes of padding due to the way the JPEG compression algorithm works on tiles not sized as a multiple of 8
 	# So we run jpegrescan on the final image to losslessly remove this padding and make the output JPG progressive

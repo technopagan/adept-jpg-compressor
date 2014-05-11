@@ -11,11 +11,11 @@
 # Brief overview of the mode of operation:
 #
 # The input JPG gets sliced into tiles, sized as a multiple of 8 due to the
-# nature of JPG compression. The image is also run through an all-directional
-# Sobel Edge Detect algorithm. This images gets further reduced to a
+# nature of JPG compression. The image is also run through a saliency
+# detection algorithm and its resulting output further reduced to a
 # 2-color black+white PNG.
 #
-# This bi-color PNG is ideal to analyse areas gray channel mean value and use
+# This bi-color PNG is ideal to measure tiles' gray channel mean value and use
 # it as a single integer indicator to judge its perceivable complexity.
 #
 # Areas with low complexity contents are then exposed to heavier compression.
@@ -25,6 +25,9 @@
 #
 ###############################################################################
 # Tools that need to be pre-installed:
+#
+#	* Maximum Symmetric Surround Saliency Algorithm Binary
+#	 http://github.com/technopagan/mss-saliency
 #
 #	* ImageMagick >= v.6.6
 #
@@ -72,7 +75,7 @@ DEFAULTCOMPRESSIONRATE="inherit"
 
 # JPEG quality setting for areas of the image deemed suitable for high compression in an integer of 0-100
 # Default: 66
-HIGHCOMPRESSIONRATE="66"
+HIGHCOMPRESSIONRATE="69"
 
 # Suffix string to attach to the output JPG filename, e.g. '_adept_compress'
 # If deliberatly set empty (''), the input JPG will be replaced with the new compressed JPG
@@ -118,10 +121,6 @@ fi
 # Default: autodetect
 TILESIZE="autodetect"
 
-# Control noise threshold for tiles. Higher threshold leads to more tiles being marked as compressable at the cost of image quality
-# Default: 0.333 - only raise/lower in small steps, e.g. 0.175, 0.333, 0.5 etc
-BLACKWHITETHRESHOLD="0.333"
-
 
 
 ###############################################################################
@@ -134,6 +133,7 @@ prepwork () {
 	find_tool MONTAGE_COMMAND montage
 	find_tool JPEGOPTIM_COMMAND jpegoptim
 	find_tool JPEGRESCAN_COMMAND jpegrescan
+	find_tool SALIENCYDETECTOR_COMMAND SaliencyDetector
 	validate_image VALIDJPEG "${FILE}"
 }
 
@@ -143,7 +143,8 @@ main () {
 	optimize_tile_size TILESIZE ${TILESIZE} ${IMAGEWIDTH} ${IMAGEHEIGHT}
 	calculate_tile_count TILEROWS ${IMAGEHEIGHT} ${TILESIZE}
 	calculate_tile_count TILECOLUMNS ${IMAGEWIDTH} ${TILESIZE}
-	optimize_bwthreshold BLACKWHITETHRESHOLD "${FILE}" ${BLACKWHITETHRESHOLD}
+	optimize_salient_regions_amount BLACKWHITETHRESHOLD "${FILE}"
+	${SALIENCYDETECTOR_COMMAND} -q -L0 -U${BLACKWHITETHRESHOLD} "${FILE}" "${TILESTORAGEPATH}${CLEANFILENAME##*/}_saliency_bw.png"
 	slice_image_to_ram "${FILE}" ${TILESIZE} ${TILESTORAGEPATH}
 	estimate_content_complexity_and_compress
 	reassemble_tiles_into_final_image
@@ -256,24 +257,45 @@ function optimize_tile_size () {
 	eval $__result="'${__optimaltilesize}'"
 }
 
-# Determine a threshold value that has a good signal to noise ratio for the input image
-function optimize_bwthreshold () {
+function optimize_salient_regions_amount () {
 	# Define local variables to work with
-	local __bwthresholdresult=$1
-	local __filetoprocess=$2
-	local __bwthreshold=$3
-	local __actualbwmedian=''
-	local __bwthreshold_iteration_count=0
-	# Retrieve the black/white median decimal for the entire image to get an estimate on its complexity / noise level
-	get_full_image_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
-	# In case there is too much noise at the current $BLACKWHITETHRESHOLD setting, try to optimize it
-	while (( $(echo "$__actualbwmedian > 50" | bc -l) )) && (( ${__bwthreshold_iteration_count} < 5 )); do
-		__bwthreshold=$(echo "scale=4; ${__bwthreshold}+0.1" | bc -l)
-		get_full_image_black_white_median __actualbwmedian ${__filetoprocess} ${TILESTORAGEPATH} ${__bwthreshold}
-		((__bwthreshold_iteration_count++))
+	local __result=$1
+	local __imagetomeasure=$2
+	local __lower_bound="0"
+	local __upper_bound="100"
+	local __current_threshold=$(echo "scale=0; ${__upper_bound}/2" | bc -l)
+	local __mean_graychannel="0"
+	# Run the saliency detector function to retrieve the Median gray channel
+	calculate_salient_regions_amount __mean_graychannel "${__imagetomeasure}" ${__upper_bound}
+	# If we didn't hit the sweet spot on our initial run, keep homing in on the ideal threshold value using binary search
+	while ( (( $(echo "${__mean_graychannel} > 40" | bc -l) )) || (( $(echo "${__mean_graychannel} < 20" | bc -l) )) ) && (( ${__lower_bound}<${__upper_bound}-1 )); do
+		# If the Median is too low, reduce the upper threshold value to get more white pixels
+		if (( $(echo "${__mean_graychannel} < 20" | bc -l) )); then
+			__upper_bound=${__current_threshold}
+		# Else if the Median is too high, raise the threshold to get fewer white pixels
+		elif (( $(echo "${__mean_graychannel} > 40" | bc -l) )); then
+			__lower_bound=${__current_threshold}
+		fi
+		# Calculate the new middle threshold
+		__current_threshold=$(echo "scale=0; (( (${__upper_bound}-${__lower_bound})/2)+${__lower_bound})" | bc -l)
+		# Rerun the saliency detector with a better estimated threshold value
+		calculate_salient_regions_amount __mean_graychannel "${__imagetomeasure}" ${__current_threshold}
 	done
 	# Return result
-	eval $__bwthresholdresult="'${__bwthreshold}'"
+	eval $__result="'${__current_threshold}'"
+}
+
+# Measure the black/white median of a saliency mapped image to use it as an indicator for successfull saliency mapped contents
+function calculate_salient_regions_amount () {
+	# Define local variables to work with
+	local __result=$1
+	local __imagetomeasure=$2
+	local __threshold=$3
+	# Use the MSS Saliency Detector with custom thresholds to generate a black+white salient map of an input image
+	# Then use the gray channel's mean as a single indicator to judge how much of the image's contents have been marked as salient
+	local __salient_amount=$(${SALIENCYDETECTOR_COMMAND} -q -L0 -U${__threshold} "${__imagetomeasure}" "png:-" | ${IDENTIFY_COMMAND} -channel Gray -format "%[fx:255*mean]" -)
+	# Return result
+	eval $__result="'${__salient_amount}'"
 }
 
 # Slice the input image into equally sized tiles
@@ -319,7 +341,7 @@ function estimate_content_complexity_and_compress () {
 			# Run identify on the 2-color limited palette PNG8 to retrieve the mean for the gray channel
 			# In this case we are using coordinates and dynamic tile sizes according to the walker logic we have created in order to dynamically view a specific image area without creating actual tiles for it
 			# The result will be a decimal number (or zero) by which we can judge the visible object complexity in the current tile
-			local __currentbwmedian=$(identify -size "${IMAGEWIDTH}"x"${IMAGEHEIGHT}" -channel Gray -format "%[fx:255*mean]" "${TILESTORAGEPATH}${CLEANFILENAME##*/}_sobel_bw.png["${__currenttilewidth}"x"${__currenttileheight}"+$(echo $((${x}*${__currenttilewidth})))+$(echo $((${y}*${__currenttileheight})))]")
+			local __currentbwmedian=$(identify -size "${IMAGEWIDTH}"x"${IMAGEHEIGHT}" -channel Gray -format "%[fx:255*mean]" "${TILESTORAGEPATH}${CLEANFILENAME##*/}_saliency_bw.png["${__currenttilewidth}"x"${__currenttileheight}"+$(echo $((${x}*${__currenttilewidth})))+$(echo $((${y}*${__currenttileheight})))]")
 			# If the gray channel median is below a defined threshold, the visible area in the current tile is very likely simple & rather monotonous and can safely be exposed to a higher compression rate
 			# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
 			if (( $(echo "$__currentbwmedian < 0.825" | bc -l) )); then
@@ -328,27 +350,6 @@ function estimate_content_complexity_and_compress () {
 			fi
 		done
 	done
-}
-
-# Measure the black/white median of a sobel+bw image to use it as an indicator for content complexity
-function get_full_image_black_white_median () {
-	# Define local variables to work with
-	local __result=$1
-	local __imagetomeasure=$2
-	local __imagenameandpath=${__imagetomeasure%.jp*g}
-	local __imagenameonly=${__imagenameandpath##*/}
-	local __currentimagestoragepath=$3
-	local __bwthreshold=$4
-	# Run an all-directional Sobel edge detection to discover high contrast borders
-	# These borders are areas JPG compression always has troubles with - so we will tread carefully if we detect them
-	# Then convert the Sobel result to a 2-color black+white image (channel ALL enables us to not lose information in the process) so that we can easily count the pixels
-	# The Threshold parameter is a basic noise filter - anything below it gets dropped so that our b/w-image is actually useful and not just pixelated noise
-	${CONVERT_COMMAND} ${__imagetomeasure} -define convolve:scale='!' -define morphology:compose=Lighten -morphology Convolve 'Sobel:>' "${FILEEXTENSION}:-" | ${CONVERT_COMMAND} - -channel All -random-threshold "${__bwthreshold}%" "${__currentimagestoragepath}${__imagenameonly}_sobel_bw.png"
-	# Run identify on the 2-color limited palette PNG8 to retrieve the mean for the gray channel
-	# The result will be a decimal number (or zero) by which we can judge the visible object complexity in the current tile
-	local __currentbwmedian=$(${IDENTIFY_COMMAND} -channel Gray -format "%[fx:255*mean]" "${__currentimagestoragepath}${__imagenameonly}_sobel_bw.png")
-	# Return result
-	eval $__result="'${__currentbwmedian}'"
 }
 
 # For the reassembly of the image, we need the count of rows and columns of tiles that were created
@@ -381,7 +382,7 @@ function reassemble_tiles_into_final_image () {
 	${JPEGRESCAN_COMMAND} -q -i "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
 
 	# Cleanup temporary files
-	rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_sobel_bw.png
+	rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_saliency_bw.png
 	# We are using find to circumvent issues on Kernel based shell limitations when iterating over a large number of files with rm
 	find "${TILESTORAGEPATH}" -maxdepth 1 -type f -name "tile_tmp_*_${CLEANFILENAME##*/}.${FILEEXTENSION}" -exec rm {} \;
 }

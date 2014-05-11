@@ -4,20 +4,21 @@ Adept - the adaptive JPG Compressor
 ## Quick Start
 
 * Remember: Adept is a **Linux commandline tool**
-* Make sure you have [a MSS saliency algorithm binary](http://github.com/technopagan/mss-saliency), [ImageMagick](http://www.imagemagick.org/), [Jpegoptim](https://github.com/tjko/jpegoptim) and [JPEGrescan](https://github.com/kud/jpegrescan) installed & useable.
+* Make sure you have [a MSS saliency algorithm binary](http://github.com/technopagan/mss-saliency), [ImageMagick](http://www.imagemagick.org/), [Jpegoptim](https://github.com/tjko/jpegoptim) and [JPEGrescan](https://github.com/kud/jpegrescan) installed
 * Fetch a copy of [adept.sh](https://raw.github.com/technopagan/adept-jpg-compressor/master/adept.sh) and place it somewhere you deem a good place for 3rd party shellscripts, e.g. "/usr/local/bin". Make sure the location is in the PATH of the user(s) who will run adept.sh and ensure that the script is executable (chmod -x).
 * Congratulations! You can now run "bash adept.sh /path/to/image.jpg" to compress JPEGs far more successfully.
 
+## Note
+
+As of 2014-05-11, the unit tests for Adept + saliency mapper are currently broken.
 
 ## Introduction
 
 When compressing JPEG images, the same compression level is used on the entire image. However, most JPEG images contain homogeneous and heterogeneous areas, which are varyingly well-suited for compression. Compressing heterogeneous areas in JPEGs to reduce filesize causes [compression artefacts](https://en.wikipedia.org/wiki/Compression_artifact) due to the lossy nature of JPEG compression.
 
-This script adaptively alters the compression level for areas within JPEGs to achieve optimal filesize while maintaining decent visual quality. This script achieves a significantly reduced filesize compared to standard CLI tools such as jpegoptim while still maintaining good visual quality. This is especially interesting for the [#WebPerf](https://twitter.com/search?q=%23WebPerf&src=typd) and WebDev community.
+This script adaptively alters the compression level for areas within JPEGs to achieve optimal filesize while maintaining decent visual quality. This script achieves a significantly reduced filesize compared to standard CLI tools such as jpegoptim while still maintaining good visual quality. This is especially interesting for the [Web Performance](https://twitter.com/search?q=%23WebPerf&src=typd) and Web Developer community.
 
-## Image Demos
-
-### On The Beach
+## Image Demo
 
 **GIMP, Save For Web Plugin, Quality 85 - 112,7 kB**
 [![Beach GIMP SaveForWeb q85](images/01-01-beach-gimp-saveforweb-q85.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-01-beach-gimp-saveforweb-q85.jpg)

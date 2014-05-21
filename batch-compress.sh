@@ -1,9 +1,8 @@
 #!/bin/env bash
 
-
 ADEPT="jpeg-adept.sh"
 
-if ! which "$ADEPT"; then echo Please install $ADEPT in your path.; fi
+if ! which "$ADEPT" > /dev/null; then echo Please install $ADEPT in your path.; fi
 
 usage() {
 	echo "Usage: $0 [Options] PATH
@@ -82,7 +81,7 @@ case "$optionName" in
 	D) debug=1;;
 	n) count="$OPTARG";;
 	f) fil="$OPTARG";;
-	x) rmorig=1
+	x) rmorig=1;;
 	\?) usage;;
 esac
 done
@@ -120,7 +119,7 @@ if [ "$fil" ]; then
 	compress "$fil"
 elif [ "$path" ]; then
 	# image stream
-	find "$path" $depth \( -name '*.jpg' -or -name '*.jpeg' \) -not -name '*_adept_compress.jpg' $farg | eval $head xargs $xarg -n 1 "$0" $targ -f
+	find "$path" $depth \( -name '*.jpg' -or -name '*.jpeg' \) -and -not -name '*_adept_compress.jpg' -and -not -name '*_adept_save.jpg' $farg | eval $head xargs $xarg -n 1 "$0" $targ -f
 else
 	usage 
 	exit 1

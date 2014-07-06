@@ -367,12 +367,10 @@ function calculate_tile_count () {
 	local __result=$1
 	local __currentimagedimension=$2
 	local __currenttilesize=$3
-	# Divide the height by tilesize using bc because Bash cannot handle floating point calculations
-	local __tilecountdecimal=$(echo "scale=4; ${__currentimagedimension}/${__currenttilesize}" | bc)
 	# Make use of Bash's behaviour of rounding down to see if we're tilecount = integer + 1
 	local __tilecountroundeddown=$(( $__currentimagedimension / $__currenttilesize ))
 	# Check if we need to +1 our integer because the decimal is larger than the integer
-	if (( $(echo "$__tilecountdecimal > $__tilecountroundeddown" | bc) )); then
+	if (( $__currenttilesize * $__tilecountroundeddown < $__currentimagedimension )); then
 		local __tilecount=$(( $__tilecountroundeddown + 1 ))
 	else
 		local __tilecount=${__tilecountroundeddown}

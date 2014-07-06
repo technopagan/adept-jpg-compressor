@@ -156,6 +156,10 @@ main () {
 # FUNCTIONS
 ###############################################################################
 
+floatToInt() {
+    printf "%.0f\n" "$@"
+}
+
 # Find the proper handle for the required commandline tool
 # This function can take an optional third parameter when being called to manually define the path to the CLI tool
 function find_tool () {
@@ -230,21 +234,21 @@ function optimize_tile_size () {
 	if [ "$TILESIZE" == "autodetect" ] ; then
 		# Pick the smaller of the two dimensions of the image as the decisive integer for tile size
 		local __decisivedimension=${__currentimageheight}
-		if (( $(echo "$IMAGEWIDTH < $__decisivedimension" | bc -l) )); then
+		if (( $IMAGEWIDTH < $__decisivedimension )); then
 			__decisivedimension=${__currentimagewidth}
 		fi
 		# For a series of sensible steps, change the tile size accordingly
-		if (( $(echo "$__decisivedimension <= 128" | bc -l) )); then
+		if (( $__decisivedimension <= 128 )); then
 			__optimaltilesize="8"
-		elif (( $(echo "$__decisivedimension >= 129" | bc -l) )) && (( $(echo "$__decisivedimension <= 256" | bc -l) )); then
+		elif (( $__decisivedimension >= 129 )) && (( $__decisivedimension <= 256 )); then
 			__optimaltilesize="16"
-		elif (( $(echo "$__decisivedimension >= 257" | bc -l) )) && (( $(echo "$__decisivedimension <= 512" | bc -l) )); then
+		elif (( $__decisivedimension >= 257 )) && (( $__decisivedimension <= 512 )); then
 			__optimaltilesize="32"
-		elif (( $(echo "$__decisivedimension >= 513" | bc -l) )) && (( $(echo "$__decisivedimension <= 1024" | bc -l) )); then
+		elif (( $__decisivedimension >= 513 )) && (( $__decisivedimension <= 1024 )); then
 			__optimaltilesize="64"
-		elif (( $(echo "$__decisivedimension >= 1025" | bc -l) )) && (( $(echo "$__decisivedimension <= 2560" | bc -l) )); then
+		elif (( $__decisivedimension >= 1025 )) && (( $__decisivedimension <= 2560 )); then
 			__optimaltilesize="128"
-		elif (( $(echo "$__decisivedimension >= 2561" | bc -l) )); then
+		elif (( $__decisivedimension >= 2561 )); then
 			__optimaltilesize="256"
 		else
 			__optimaltilesize="64"
@@ -263,23 +267,28 @@ function optimize_salient_regions_amount () {
 	local __imagetomeasure=$2
 	local __lower_bound="0"
 	local __upper_bound="100"
-	local __current_threshold=$(echo "scale=0; ${__upper_bound}/2" | bc -l)
+	local __current_threshold=$(( $__upper_bound/2 ))
 	local __mean_graychannel="0"
 	# Run the saliency detector function to retrieve the Median gray channel
 	calculate_salient_regions_amount __mean_graychannel "${__imagetomeasure}" ${__upper_bound}
+
+	__mean_graychannel=$(floatToInt $__mean_graychannel)
+
 	# If we didn't hit the sweet spot on our initial run, keep homing in on the ideal threshold value using binary search
-	while ( (( $(echo "${__mean_graychannel} > 40" | bc -l) )) || (( $(echo "${__mean_graychannel} < 20" | bc -l) )) ) && (( ${__lower_bound}<${__upper_bound}-1 )); do
+	while ( (( $__mean_graychannel > 40 )) || (( $__mean_graychannel < 20  )) ) && (( $__lower_bound < $__upper_bound-1 )); do
 		# If the Median is too low, reduce the upper threshold value to get more white pixels
-		if (( $(echo "${__mean_graychannel} < 20" | bc -l) )); then
+		if (( $__mean_graychannel < 20 )); then
 			__upper_bound=${__current_threshold}
 		# Else if the Median is too high, raise the threshold to get fewer white pixels
-		elif (( $(echo "${__mean_graychannel} > 40" | bc -l) )); then
+		elif (( $__mean_graychannel > 40 )); then
 			__lower_bound=${__current_threshold}
 		fi
 		# Calculate the new middle threshold
-		__current_threshold=$(echo "scale=0; (( (${__upper_bound}-${__lower_bound})/2)+${__lower_bound})" | bc -l)
+		__current_threshold=$(( ($__upper_bound-$__lower_bound)/2+$__lower_bound ))
 		# Rerun the saliency detector with a better estimated threshold value
 		calculate_salient_regions_amount __mean_graychannel "${__imagetomeasure}" ${__current_threshold}
+
+		__mean_graychannel=$(floatToInt $__mean_graychannel)
 	done
 	# Return result
 	eval $__result="'${__current_threshold}'"
@@ -329,14 +338,14 @@ function estimate_content_complexity_and_compress () {
 			# Prepend leading zeros to the counter so the integer matches the numbers handed out to the filename by ImageMagick
 			__currenttilecount=$(printf "%06d" $__currenttilecount);
 			# If we are nearing the end of the image height, reduce tile size to whatever is left vertically
-			if (( $(echo "$y+1 == $TILEROWS" | bc -l) )) && (( $(echo "$TILEROWS*${__currenttileheight} > ${IMAGEHEIGHT}" | bc -l) )); then
-				__currenttileheight=$(echo "(($y+1)*${TILESIZE})-${IMAGEHEIGHT}" | bc -l)
-				__currenttilerow=$(echo "($y+1)" | bc -l)
+			if (( $y + 1 == $TILEROWS )) && (( $TILEROWS * $__currenttileheight > $IMAGEHEIGHT )); then
+				__currenttileheight=$(( (($y+1)*$TILESIZE) - $IMAGEHEIGHT ))
+				__currenttilerow=$(( $y+1 ))
 			fi
 			# And if we are nearing the end of the image width, reduce tile size to whatever is left horizontally
-			if (( $(echo "$x+1 == $TILECOLUMNS" | bc -l) )) && (( $(echo "$TILECOLUMNS*${__currenttilewidth} > ${IMAGEWIDTH}" | bc -l) )); then
-				__currenttilewidth=$(echo "(($x+1)*${TILESIZE})-${IMAGEWIDTH}" | bc -l)
-				__currenttilecolumn=$(echo "($x+1)" | bc -l)
+			if (( $x + 1 == $TILECOLUMNS )) && (( $TILECOLUMNS * $__currenttilewidth > $IMAGEWIDTH )); then
+				__currenttilewidth=$(( (($x+1)*$TILESIZE) - $IMAGEWIDTH ))
+				__currenttilecolumn=$(( $x+1 ))
 			fi
 			# Run identify on the 2-color limited palette PNG8 to retrieve the mean for the gray channel
 			# In this case we are using coordinates and dynamic tile sizes according to the walker logic we have created in order to dynamically view a specific image area without creating actual tiles for it
@@ -344,7 +353,7 @@ function estimate_content_complexity_and_compress () {
 			local __currentbwmedian=$(identify -size "${IMAGEWIDTH}"x"${IMAGEHEIGHT}" -channel Gray -format "%[fx:255*mean]" "${TILESTORAGEPATH}${CLEANFILENAME##*/}_saliency_bw.png["${__currenttilewidth}"x"${__currenttileheight}"+$(echo $((${x}*${__currenttilewidth})))+$(echo $((${y}*${__currenttileheight})))]")
 			# If the gray channel median is below a defined threshold, the visible area in the current tile is very likely simple & rather monotonous and can safely be exposed to a higher compression rate
 			# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
-			if (( $(echo "$__currentbwmedian < 0.825" | bc -l) )); then
+			if (( $(echo "$__currentbwmedian < 0.825" | bc) )); then
 				# We experimented with blurring/smoothing of tiles here to enhance JPEG compression, but results were insignificant
 				${JPEGOPTIM_COMMAND} --max=${HIGHCOMPRESSIONRATE} --strip-all --strip-iptc --strip-icc "${TILESTORAGEPATH}"tile_tmp_"${__currenttilecount}"_"${CLEANFILENAME##*/}"."${FILEEXTENSION}" >/dev/null 2>/dev/null
 			fi
@@ -359,12 +368,12 @@ function calculate_tile_count () {
 	local __currentimagedimension=$2
 	local __currenttilesize=$3
 	# Divide the height by tilesize using bc because Bash cannot handle floating point calculations
-	local __tilecountdecimal=$(echo "scale=4; ${__currentimagedimension}/${__currenttilesize}" | bc -l)
+	local __tilecountdecimal=$(echo "scale=4; ${__currentimagedimension}/${__currenttilesize}" | bc)
 	# Make use of Bash's behaviour of rounding down to see if we're tilecount = integer + 1
-	local __tilecountroundeddown=$(echo $((${__currentimagedimension}/${__currenttilesize})))
+	local __tilecountroundeddown=$(( $__currentimagedimension / $__currenttilesize ))
 	# Check if we need to +1 our integer because the decimal is larger than the integer
-	if (( $(echo "$__tilecountdecimal > $__tilecountroundeddown" | bc -l) )); then
-		local __tilecount=$(echo $((${__tilecountroundeddown}+1)))
+	if (( $(echo "$__tilecountdecimal > $__tilecountroundeddown" | bc) )); then
+		local __tilecount=$(( $__tilecountroundeddown + 1 ))
 	else
 		local __tilecount=${__tilecountroundeddown}
 	fi

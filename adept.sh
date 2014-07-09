@@ -19,8 +19,8 @@
 # it as a single integer indicator to judge its perceivable complexity.
 #
 # Areas with low complexity contents are then exposed to heavier compression.
-# At reassemlby, this leads to savings in image bytesize while maintaining
-# good visual quality because no compression artefacts occur in areas of
+# At reassembly, this leads to savings in image byte size while maintaining
+# good visual quality because no compression artifacts occur in areas of
 # high-complexity or sharp contrasts.
 #
 ###############################################################################
@@ -36,13 +36,13 @@
 #	* JPEGRescan Perl Script for lossless JPG compression
 #	 http://github.com/kud/jpegrescan
 #
-# Note: Additonal tools are required to run Adept, such as "bc",
+# Note: Additional tools are required to run Adept, such as "bc",
 # "find", "rm" and Bash 3.x. As all of these tools are provided by lsbcore, core-utils
 # or similar default packages, we can expect them to be always available.
 #
 ###############################################################################
 #
-# This software is published under the BSD licence 3.0
+# This software is published under the BSD license 3.0
 #
 # Copyright (c) 2013-2014, Tobias Baldauf
 # All rights reserved.
@@ -74,11 +74,11 @@
 DEFAULTCOMPRESSIONRATE="inherit"
 
 # JPEG quality setting for areas of the image deemed suitable for high compression in an integer of 0-100
-# Default: 66
+# Default: 69
 HIGHCOMPRESSIONRATE="69"
 
 # Suffix string to attach to the output JPG filename, e.g. '_adept_compress'
-# If deliberatly set empty (''), the input JPG will be replaced with the new compressed JPG
+# If deliberately set empty (''), the input JPG will be replaced with the new compressed JPG
 OUTPUTFILESUFFIX="_adept_compress"
 
 
@@ -98,7 +98,7 @@ FILEEXTENSION=${FILE##*.}
 
 # Retrieve clean path directory without filename
 CLEANPATH="${FILE%/*}"
-# If the JPEG is in the same direcctory as Adept, empty the path variable
+# If the JPEG is in the same directory as Adept, empty the path variable
 # Or if it is set, make sure the path has a trailing slash
 if [ "$CLEANPATH" == "$FILE" ]; then
 	CLEANPATH=""
@@ -156,7 +156,7 @@ main () {
 # FUNCTIONS
 ###############################################################################
 
-# Find the proper handle for the required commandline tool
+# Find the proper handle for the required command-line tool
 # This function can take an optional third parameter when being called to manually define the path to the CLI tool
 function find_tool () {
 	# Define local variables to work with
@@ -197,7 +197,7 @@ function validate_image () {
 		# Use IM identify to read the file magic of the input file to validate it's a JPEG
 		local __filemagic=$(${IDENTIFY_COMMAND} -format %m "$__imagetovalidate")
 		if [ "$__filemagic" == "JPEG" ] ; then
-			# Set a switch that it is ok to work on the input file, launching the main funtion
+			# Set a switch that it is ok to work on the input file, launching the main function
 			local __validationresult=1
 		fi
 	fi
@@ -217,7 +217,7 @@ function find_image_dimension () {
 	eval $__result="'${__imagedimension}'"
 }
 
-# Tile size is the no.1 performance bottleneck for Adept, so it is important we pick an optimal tile size for the input image dimensions
+# Tile size is the principal performance bottleneck for Adept, so it is important we pick an optimal tile size for the input image dimensions
 # Also, the number of tiles to be recombined affects compression efficiency and salient areas within an image tend to have similar dimensional
 # relations to total image size, so it makes sense to change tile size accordingly
 function optimize_tile_size () {
@@ -285,7 +285,7 @@ function optimize_salient_regions_amount () {
 	eval $__result="'${__current_threshold}'"
 }
 
-# Measure the black/white median of a saliency mapped image to use it as an indicator for successfull saliency mapped contents
+# Measure the black/white median of a saliency mapped image to use it as an indicator for successful saliency mapped contents
 function calculate_salient_regions_amount () {
 	# Define local variables to work with
 	local __result=$1
@@ -324,7 +324,7 @@ function estimate_content_complexity_and_compress () {
 			# Reset tile dimensions for each run because we need to check them anew each time
 			local __currenttileheight=${TILESIZE}
 			local __currenttilewidth=${TILESIZE}
-			# Count up the processed tile number and setting it to Base10 because we will be padding it with leading zeros and Bash would interprete the integer as Base8 per default
+			# Count up the processed tile number and setting it to Base10 because we will be padding it with leading zeros and Bash would interpret the integer as Base8 per default
 			__currenttilecount=$(( 10#$__currenttilecount + 1 ))
 			# Prepend leading zeros to the counter so the integer matches the numbers handed out to the filename by ImageMagick
 			__currenttilecount=$(printf "%06d" $__currenttilecount);
@@ -372,7 +372,7 @@ function calculate_tile_count () {
 	eval $__result="'${__tilecount}'"
 }
 
-# Now that we know the number of rows+columns, we use montage to recombine the now partially compressed tiles into a new coherant JPEG image
+# Now that we know the number of rows+columns, we use montage to recombine the now partially compressed tiles into a new coherent JPEG image
 function reassemble_tiles_into_final_image () {
 	# Use montage to reassemble the individual, partially optimized tiles into a new consistent JPEG image
 	${MONTAGE_COMMAND} -quiet -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(find "${TILESTORAGEPATH}" -maxdepth 1 -type f -name "tile_tmp_*_${CLEANFILENAME##*/}.${FILEEXTENSION}" | sort) "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} >/dev/null 2>/dev/null

@@ -121,6 +121,10 @@ fi
 # Default: autodetect
 TILESIZE="autodetect"
 
+# Set locales to C (raw uninterpreted byte sequence)
+# to avoid Illegal byte sequence errors and invalid number errors
+export LANG=C LC_NUMERIC=C LC_COLLATE=C
+
 
 
 ###############################################################################

@@ -152,6 +152,8 @@ main () {
 	slice_image_to_ram "${FILE}" ${TILESIZE} ${TILESTORAGEPATH}
 	estimate_content_complexity_and_compress
 	reassemble_tiles_into_final_image
+	compare_file_sizes
+	cleanup
 }
 
 
@@ -161,8 +163,22 @@ main () {
 ###############################################################################
 
 # Convert floats to integers
-floatToInt() {
+function floatToInt() {
     printf "%.0f\n" "$@"
+}
+
+# Get a file's size
+function filesize () {
+	# Define local variables to work with
+	local __result=$1
+	# Use GNU stat by default
+	local __statcommand="stat -c '%s'"
+	if [ ! $($__statcommand /dev/null >/dev/null 2>/dev/null) ]; then
+		# If that doesn't work, use BSD stat
+		local __statcommand="stat -f '%z'"
+	fi
+	# Return the result
+	eval $__result=$($__statcommand "$2")
 }
 
 # Find the proper handle for the required command-line tool
@@ -387,13 +403,44 @@ function calculate_tile_count () {
 # Now that we know the number of rows+columns, we use montage to recombine the now partially compressed tiles into a new coherent JPEG image
 function reassemble_tiles_into_final_image () {
 	# Use montage to reassemble the individual, partially optimized tiles into a new consistent JPEG image
-	${MONTAGE_COMMAND} -quiet -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(find "${TILESTORAGEPATH}" -maxdepth 1 -type f -name "tile_tmp_*_${CLEANFILENAME##*/}.${FILEEXTENSION}" | sort) "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} >/dev/null 2>/dev/null
+	${MONTAGE_COMMAND} -quiet -strip -quality "${DEFAULTCOMPRESSIONRATE}" -mode concatenate -tile "${TILECOLUMNS}x${TILEROWS}" $(find "${TILESTORAGEPATH}" -maxdepth 1 -type f -name "tile_tmp_*_${CLEANFILENAME##*/}.${FILEEXTENSION}" | sort) "${TILESTORAGEPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} >/dev/null 2>/dev/null
 
 	# During montage reassembly, the resulting image received bytes of padding due to the way the JPEG compression algorithm works on tiles not sized as a multiple of 8
 	# So we run jpegrescan on the final image to losslessly remove this padding and make the output JPG progressive
-	${JPEGRESCAN_COMMAND} -q -i "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
+	${JPEGRESCAN_COMMAND} -q -i "${TILESTORAGEPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} "${TILESTORAGEPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
+}
 
-	# Cleanup temporary files
+function compare_file_sizes () {
+	# Define local variables to work with
+	local __tmpfile="${TILESTORAGEPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
+	local __tmpfilesise=0
+	local __originalfilesize=0
+	# Get file sizes
+	filesize __originalfilesize "$FILE"
+	filesize __tmpfilesise "$__tmpfile"
+	# Move image to final location if smaller
+	if (( $__tmpfilesise < $__originalfilesize )); then
+		move_final_image_into_place
+	else
+		echo "Output is larger than the original image. Nothing being done."
+	fi
+}
+
+# Move the final image to the output destination
+function move_final_image_into_place () {
+	# The output destination file may already exist; overwrite if necessary 
+	mv -f "${TILESTORAGEPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} >/dev/null 2>/dev/null
+}
+
+# Cleanup temporary files
+function cleanup () {
+	# Define local variables to work with
+	local __tmpfile="${TILESTORAGEPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
+	# Remove temporary file, if it still exists
+	if [ -e $__tmpfile ]; then
+		rm $__tmpfile
+	fi
+	# Remove saliency map
 	rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_saliency_bw.png
 	# We are using find to circumvent issues on Kernel based shell limitations when iterating over a large number of files with rm
 	find "${TILESTORAGEPATH}" -maxdepth 1 -type f -name "tile_tmp_*_${CLEANFILENAME##*/}.${FILEEXTENSION}" -exec rm {} \;

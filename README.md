@@ -13,7 +13,7 @@ Adept - the adaptive JPG Compressor
 
 When compressing JPEG images, the same compression level is used on the entire image. However, most JPEG images contain homogeneous and heterogeneous areas, which are varyingly well-suited for compression. Compressing heterogeneous areas in JPEGs to reduce filesize causes [compression artefacts](https://en.wikipedia.org/wiki/Compression_artifact) due to the lossy nature of JPEG compression.
 
-This script adaptively alters the compression level for areas within JPEGs (per-block level lambda) to achieve optimized file size while maintaining a decent visual quality. This script achieves a significantly reduced file size compared to standard tools such as cjpeg while maintaining good visual quality, as can be measured via SSIM. This is good news for the [Web Performance](https://twitter.com/search?q=%23WebPerf&src=typd) and thus Web Developer community to achieve a great user experience on websites.
+This script adaptively alters the compression level for areas within JPEGs (per-block) to achieve optimized file size while maintaining a decent visual quality. This script achieves a significantly reduced file size compared to standard tools such as cjpeg while maintaining good visual quality, as can be measured via SSIM. This is good news for the [Web Performance](https://twitter.com/search?q=%23WebPerf&src=typd) and thus Web Developer community to achieve a great user experience on websites.
 
 ## Contributors
 

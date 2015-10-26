@@ -3,42 +3,17 @@ Adept - the adaptive JPG Compressor
 
 ## Quick Start
 
-* Remember: Adept is a **Linux commandline tool**
-* Make sure you have [a MSS saliency algorithm binary](http://github.com/technopagan/mss-saliency), [ImageMagick](http://www.imagemagick.org/), [Jpegoptim](https://github.com/tjko/jpegoptim) and [JPEGrescan](https://github.com/kud/jpegrescan) installed
-* Fetch a copy of [adept.sh](https://raw.github.com/technopagan/adept-jpg-compressor/master/adept.sh) and place it somewhere you deem a good place for 3rd party shellscripts, e.g. "/usr/local/bin". Make sure the location is in the PATH of the user(s) who will run adept.sh and ensure that the script is executable (chmod -x).
-* Congratulations! You can now run "bash adept.sh /path/to/image.jpg" to compress JPEGs far more successfully.
-
-## Note
-
-As of 2014-05-11, the unit tests for Adept + saliency mapper are currently broken.
+* Please install [a MSS saliency algorithm binary](http://github.com/technopagan/mss-saliency), [ImageMagick](http://www.imagemagick.org/), [MozJPEG](https://github.com/mozilla/mozjpeg) and [JPEGrescan](https://github.com/kud/jpegrescan)
+* Make MozJPEG available as "mozjpeg" in your $PATH, e.g. via symlink
+* Fetch a copy of [adept](https://raw.github.com/technopagan/adept-jpg-compressor/master/adept.sh) and place it somewhere you deem a good place for 3rd party shellscripts, e.g. "/usr/local/bin". Make sure the location is in the $PATH of the user(s) who will run adept and ensure that the script is executable (chmod -x).
+* Symlink it as "adept" for your own convenience
+* Now you can run "adept /path/to/image.jpg" to compress JPEGs far more effectively!
 
 ## Introduction
 
 When compressing JPEG images, the same compression level is used on the entire image. However, most JPEG images contain homogeneous and heterogeneous areas, which are varyingly well-suited for compression. Compressing heterogeneous areas in JPEGs to reduce filesize causes [compression artefacts](https://en.wikipedia.org/wiki/Compression_artifact) due to the lossy nature of JPEG compression.
 
-This script adaptively alters the compression level for areas within JPEGs to achieve optimal filesize while maintaining decent visual quality. This script achieves a significantly reduced filesize compared to standard CLI tools such as jpegoptim while still maintaining good visual quality. This is especially interesting for the [Web Performance](https://twitter.com/search?q=%23WebPerf&src=typd) and Web Developer community.
-
-## Image Demo
-
-**GIMP, Save For Web Plugin, Quality 85 - 112,7 kB**
-[![Beach GIMP SaveForWeb q85](images/01-01-beach-gimp-saveforweb-q85.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-01-beach-gimp-saveforweb-q85.jpg)
-GIMP's Save for Web, q85, optimized, Basline & stripped EXIF is the base configuration for all of our test images.
-
-**JPEGOptim --max=85 -t -v --strip-all + lossless JPEGRescan - 110,4 kB**
-[![Beach JPEGOptim plus JPEGRescan](images/01-02-beach-jpegoptim-q85-stripall-plus-jpegrescan.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-02-beach-jpegoptim-q85-stripall-plus-jpegrescan.jpg)
-Using popular commandline tools for JPG compression, we can achieve a 2.04% smaller filesize with no perceivable loss in quality.
-
-**Adobe Fireworks + @pornelski's ImageOptim - 106,9 kB**
-[![Beach Adobe Fireworks and ImageOptim](images/01-04-beach-Adobe-Fireworks-plus-ImageOptim-identical-quality-settings.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-04-beach-Adobe-Fireworks-plus-ImageOptim-identical-quality-settings.jpg)
-The commercial Adobe suite, combined with postprocessing by [ImageOptim](http://imageoptim.com/) by [@pornelski](https://twitter.com/pornelski), both set to identical quality settings as the other tools, produces the best result: 5.01% filesize reduction while the horizon's blue gradiant features fewer compression artefacts. Impressive! Sadly, this is not automatable at scale.
-
-**JPEGMini - 98,4 kB**
-[![Beach JPEGMini](images/01-05-beach-jpegmini.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-05-beach-jpegmini.jpg)
-The big noise of 2011. JPEGMini claimed they reinvented JPEG compression while not breaking the ISO standard. And Yes, the image created by JPEGMini features a whoppin filesize reduction of 12.68%. Sadly, it is also the image with the most visible compression artefacts, also around the key areas of the image. There also is a severe loss of detail on the waves as well as the sand.
-
-**Adept - 91,4 kB**
-[![Beach Adept](images/01-03-beach_adept_compress.jpg)](https://raw.github.com/technopagan/adept-jpg-compressor/master/images/01-03-beach_adept_compress.jpg)
-With Adept, the filesize is reduced by 19%! Slight artefacts can be perceived when zooming in closely on the horizon's blue gradiant because Adept identified the sky as an area of low complexity and thus compressed it more heavily. No artifacts are present at any of the key areas of the image, however (parasol, canvas chair, horizon border, sea-to-sand border etc).
+This script adaptively alters the compression level for areas within JPEGs (per-block level lambda) to achieve optimized file size while maintaining a decent visual quality. This script achieves a significantly reduced file size compared to standard tools such as cjpeg while maintaining good visual quality, as can be measured via SSIM. This is good news for the [Web Performance](https://twitter.com/search?q=%23WebPerf&src=typd) and thus Web Developer community to achieve a great user experience on websites.
 
 ## Contributors
 
@@ -57,7 +32,7 @@ In alphabetical order:
 
 This software is published under the BSD licence 3.0
 
-Copyright (c) 2014, Tobias Baldauf
+Copyright (c) 2015, Tobias Baldauf
 All rights reserved.
 
 Mail: [kontakt@tobias-baldauf.de](mailto:kontakt@tobias-baldauf.de)

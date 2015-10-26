@@ -26,15 +26,9 @@ source "${BATS_TEST_DIRNAME}/../adept.sh" >/dev/null 2>/dev/null
 }
 
 @test "Optimize Tile Size" {
-  optimize_tile_size TILESIZE 'autodetect' 512 512
+  optimize_tile_size TILESIZE 'autodetect' 513 513
   result=${TILESIZE}
-  [ "$result" -eq 32 ]
-}
-
-@test "Optimize Black/White Threshold" {
-  optimize_bwthreshold BLACKWHITETHRESHOLD "test.jpg" ${BLACKWHITETHRESHOLD}
-  result=${BLACKWHITETHRESHOLD}
-  [ "$(echo $result '==' 0.333 | bc -l)" -eq 1 ]
+  [ "$result" -eq 16 ]
 }
 
 @test "Slice Image into Tiles" {
@@ -47,23 +41,14 @@ source "${BATS_TEST_DIRNAME}/../adept.sh" >/dev/null 2>/dev/null
   rm -f "$BATS_TMPDIR/.*.jpe*g"
 }
 
-# NEEDS REFACTORING: estimate_tile_content_complexity_and_compress
-
-@test "Retrieve Black/White Median" {
-  FILEEXTENSION='jpg'
-  get_full_image_black_white_median BWMEDIAN "test.jpg" "$BATS_TMPDIR/" ${BLACKWHITETHRESHOLD}
-  result=${BWMEDIAN}
-  echo $result
-  [ "$(echo $result '==' 2.00775 | bc -l)" -eq 1 ]
-  rm -f "$BATS_TMPDIR/.*.jpe*g"
-}
-
 @test "Calculate Tile Count for Reassembly" {
   calculate_tile_count TILEROWS 512 32
   result=${TILEROWS}
   [ "$result" -eq 16 ]
 }
 
+# NEEDS IMPLEMENTING: optimize_salient_regions_amount
 # NEEDS REFACTORING: reassemble_tiles_into_final_image
+# NEEDS REFACTORING: estimate_tile_content_complexity_and_compress
 # Uses globals ${TILESTORAGEPATH} and ${FILEEXTENSION} etc. Replace with locals.
 # Currently has two steps: recompile + recompress. This should be two seperate functions.

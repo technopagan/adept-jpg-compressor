@@ -31,20 +31,22 @@
 #
 #	* ImageMagick >= v.6.6
 #
-#	* JPEGOptim
+#	* MozJPEG
+#	 http://github.com/mozilla/mozjpeg
+#	 Expects Mozjpeg to be available under 'mozjpeg', e.g. via symlink
 #
 #	* JPEGRescan Perl Script for lossless JPG compression
 #	 http://github.com/kud/jpegrescan
 #
 # Note: Additonal tools are required to run Adept, such as "bc",
-# "find", "rm" and Bash 3.x. As all of these tools are provided by lsbcore, core-utils
+# "find", "mv", "rm" and Bash 3.x. As all of these tools are provided by lsbcore, core-utils
 # or similar default packages, we can expect them to be always available.
 #
 ###############################################################################
 #
 # This software is published under the BSD licence 3.0
 #
-# Copyright (c) 2013-2014, Tobias Baldauf
+# Copyright (c) 2013-2015, Tobias Baldauf
 # All rights reserved.
 #
 # Mail: kontakt@tobias-baldauf.de
@@ -74,7 +76,7 @@
 DEFAULTCOMPRESSIONRATE="inherit"
 
 # JPEG quality setting for areas of the image deemed suitable for high compression in an integer of 0-100
-# Default: 66
+# Default: 69
 HIGHCOMPRESSIONRATE="69"
 
 # Suffix string to attach to the output JPG filename, e.g. '_adept_compress'
@@ -135,7 +137,7 @@ prepwork () {
 	find_tool IDENTIFY_COMMAND identify
 	find_tool CONVERT_COMMAND convert
 	find_tool MONTAGE_COMMAND montage
-	find_tool JPEGOPTIM_COMMAND jpegoptim
+	find_tool JPEGCOMPRESSION_COMMAND mozjpeg
 	find_tool JPEGRESCAN_COMMAND jpegrescan
 	find_tool SALIENCYDETECTOR_COMMAND SaliencyDetector
 	validate_image VALIDJPEG "${FILE}"
@@ -242,20 +244,14 @@ function optimize_tile_size () {
 			__decisivedimension=${__currentimagewidth}
 		fi
 		# For a series of sensible steps, change the tile size accordingly
-		if (( $__decisivedimension <= 128 )); then
+		if (( $__decisivedimension <= 512 )); then
 			__optimaltilesize="8"
-		elif (( $__decisivedimension >= 129 )) && (( $__decisivedimension <= 256 )); then
-			__optimaltilesize="16"
-		elif (( $__decisivedimension >= 257 )) && (( $__decisivedimension <= 512 )); then
-			__optimaltilesize="32"
 		elif (( $__decisivedimension >= 513 )) && (( $__decisivedimension <= 1024 )); then
-			__optimaltilesize="64"
-		elif (( $__decisivedimension >= 1025 )) && (( $__decisivedimension <= 2560 )); then
-			__optimaltilesize="128"
-		elif (( $__decisivedimension >= 2561 )); then
-			__optimaltilesize="256"
+			__optimaltilesize="16"
+		elif (( $__decisivedimension >= 1025 )); then
+			__optimaltilesize="32"
 		else
-			__optimaltilesize="64"
+			__optimaltilesize="8"
 		fi
 	# In case the user has changed the configuration from "autodetect" to a custom setting, respect & return this instead
 	else
@@ -321,7 +317,7 @@ function slice_image_to_ram () {
 	if [ "$DEFAULTCOMPRESSIONRATE" == "inherit" ] ; then
 		DEFAULTCOMPRESSIONRATE=$(${IDENTIFY_COMMAND} -format "%Q" ${__filetoprocess})
 	fi
-	${CONVERT_COMMAND} "$__filetoprocess" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -define jpeg:dct-method=float -crop "${__currenttilesize}"x"${__currenttilesize}" +repage +adjoin "${__currenttilestoragepath}tile_tmp_%06d_${CLEANFILENAME##*/}.${FILEEXTENSION}"
+	${CONVERT_COMMAND} "$__filetoprocess" -strip -quality "${DEFAULTCOMPRESSIONRATE}" -define jpeg:dct-method=default -crop "${__currenttilesize}"x"${__currenttilesize}" +repage +adjoin "${__currenttilestoragepath}tile_tmp_%06d_${CLEANFILENAME##*/}.${FILEEXTENSION}"
 }
 
 # For each tile, test if it is suitable for higher compression and if so, proceed
@@ -337,8 +333,6 @@ function estimate_content_complexity_and_compress () {
 			# Reset tile dimensions for each run because we need to check them anew each time
 			local __currenttileheight=${TILESIZE}
 			local __currenttilewidth=${TILESIZE}
-			# Count up the processed tile number and setting it to Base10 because we will be padding it with leading zeros and Bash would interprete the integer as Base8 per default
-			__currenttilecount=$(( 10#$__currenttilecount + 1 ))
 			# Prepend leading zeros to the counter so the integer matches the numbers handed out to the filename by ImageMagick
 			__currenttilecount=$(printf "%06d" $__currenttilecount);
 			# If we are nearing the end of the image height, reduce tile size to whatever is left vertically
@@ -359,8 +353,11 @@ function estimate_content_complexity_and_compress () {
 			# Untouched JPGs simply stay at the defined default quality setting ($DEFAULTCOMPRESSIONRATE)
 			if (( $(echo "$__currentbwmedian < 0.825" | bc) )); then
 				# We experimented with blurring/smoothing of tiles here to enhance JPEG compression, but results were insignificant
-				${JPEGOPTIM_COMMAND} --max=${HIGHCOMPRESSIONRATE} --strip-all --strip-iptc --strip-icc "${TILESTORAGEPATH}"tile_tmp_"${__currenttilecount}"_"${CLEANFILENAME##*/}"."${FILEEXTENSION}" >/dev/null 2>/dev/null
+				${JPEGCOMPRESSION_COMMAND} -progressive -optimize -quality ${HIGHCOMPRESSIONRATE} -outfile "${TILESTORAGEPATH}"tile_tmp_"${__currenttilecount}"_"${CLEANFILENAME##*/}"_mozjpeg."${FILEEXTENSION}" "${TILESTORAGEPATH}"tile_tmp_"${__currenttilecount}"_"${CLEANFILENAME##*/}"."${FILEEXTENSION}"
+				mv "${TILESTORAGEPATH}"tile_tmp_"${__currenttilecount}"_"${CLEANFILENAME##*/}"_mozjpeg."${FILEEXTENSION}" "${TILESTORAGEPATH}"tile_tmp_"${__currenttilecount}"_"${CLEANFILENAME##*/}"."${FILEEXTENSION}"
 			fi
+			# As the last action within the loop, increment the counter for the processed tile number. Use Base10 because with the padding of leading zeros, Bash would interprete the integer as Base8 per default.
+			__currenttilecount=$(( 10#$__currenttilecount + 1 ))
 		done
 	done
 }
@@ -390,7 +387,7 @@ function reassemble_tiles_into_final_image () {
 
 	# During montage reassembly, the resulting image received bytes of padding due to the way the JPEG compression algorithm works on tiles not sized as a multiple of 8
 	# So we run jpegrescan on the final image to losslessly remove this padding and make the output JPG progressive
-	${JPEGRESCAN_COMMAND} -q -i "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
+	${JPEGRESCAN_COMMAND} -q -s -i "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION} "${CLEANPATH}${CLEANFILENAME##*/}${OUTPUTFILESUFFIX}".${FILEEXTENSION}
 
 	# Cleanup temporary files
 	rm ${TILESTORAGEPATH}${CLEANFILENAME##*/}_saliency_bw.png

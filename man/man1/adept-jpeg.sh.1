@@ -1,0 +1,60 @@
+.TH Adept 1 "21 Dec 2018" "0.0.70" "User Manual"
+.SH NAME
+adept-jpeg.sh \- the adaptive JPG Compressor
+.SH DESCRIPTION
+This script adaptively alters the compression level for areas within JPEGs (per-block)
+to achieve optimized file size while maintaining a decent visual quality.
+This script achieves a significantly reduced file size compared to standard tools
+such as cjpeg while maintaining good visual quality, as can be measured via SSIM.
+This is good news for the and thus Web Developer community to achieve
+a great user experience on websites.
+.SH SYNOPSIS
+.B adept-jpeg.sh [ OPTIONS ] /path/to/image.jpeg
+.SH OPTIONS
+.TP
+.B \-h
+Displays help message.
+.TP
+.B \-c string
+Name compressor: imagemagick (default), cjpeg, jpegoptim, jpge, mozcjpeg.
+.TP
+.B \-q 0..100
+Compression rate of areas considered as important, default value is 'inherit'.
+.TP
+.B \-Q 0..100
+Compression rate of areas deemed suitable for high compression, default is 69.
+.TP
+.B \-s suffix
+This will append 'suffix' to filenames. Default value is '_adept_compress[_compressor]'.
+.TP
+.B \-t integer
+tile size, accepted values are 8,16,32,64,128 and 256. The smaller the value, the better results but might take signifficantly more time to process. The default value is 'autodetect'.
+.SH COMPRESSOR
+.TP
+.B cjpeg
+Standard jpeg library.
+.TP
+.B imagemagick
+Standard jpeg library using imagemagick.
+.TP
+.B jpegoptim
+Standard jpeg library using jpegoptim.
+.TP
+.B jpge
+Research JPEG encoder.
+.TP
+.B mozcjpeg
+Mozjpeg library. A JPEG codec that provides increased compression for JPEG images.
+.SH EXAMPLE
+adept-jpeg.sh sample.jpg
+.SH SEE ALSO
+.BR imagemagick (1),
+.BR djpeg (1),
+.BR cjpeg (1),
+.BR jpegoptim (1),
+.BR jpegrescan (1),
+.BR jpge (1),
+.BR mozcjpeg (1),
+.SH AUTHOR
+Copyright (c) 2015, Tobias Baldauf.
+All rights reserved.

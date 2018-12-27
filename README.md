@@ -15,6 +15,37 @@ When compressing JPEG images, the same compression level is used on the entire i
 
 This script adaptively alters the compression level for areas within JPEGs (per-block) to achieve optimized file size while maintaining a decent visual quality. This script achieves a significantly reduced file size compared to standard tools such as cjpeg while maintaining good visual quality, as can be measured via SSIM. This is good news for the [Web Performance](https://twitter.com/search?q=%23WebPerf&src=typd) and thus Web Developer community to achieve a great user experience on websites.
 
+## Example
+
+Best quality/size:
+
+```
+$ convert -verbose -quality 100 images/lena.png images/lena.q100.jpg
+images/lena.png PNG 512x512 512x512+0+0 8-bit DirectClass 475KB 0.010u 0:00.010
+images/lena.png=>images/lena.q100.jpg PNG 512x512 512x512+0+0 8-bit DirectClass 401KB 0.030u 0:00.039
+
+$ ./adept-jpeg.sh images/lena.q100.jpg
+./adept-jpeg.sh options: inherit, 69, autodetect, _adept_compress_imagemagick
+404266 images/lena.q100.jpg
+size=8 512 512
+tilecount=64x64
+salient=1.04084
+salient=74.321
+salient=48.2852
+salient=36.5063
+threshold=43
+slice to ram... ok.
+estimate content complexity and compress... 4096 tile ok.
+final image... ok.
+200860 images/lena.q100_adept_compress_imagemagick.jpg (50%)
+
+$ dssim -o images/lena.q100_adept_compress_imagemagick.c.png images/lena.png images/lena.q100_adept_compress_imagemagick.jpg
+0.00236562  lena.q100_adept_compress_imagemagick.jpg
+```
+![PNG](./images/lena.png) ![JPEG Q=100](./images/lena.q100.jpg) ![ADEPT JPEG](./images/lena.q100_adept_compress_imagemagick.jpg) ![DSSIM](./images/lena.q100_adept_compress_imagemagick.c.png)
+
+PNG -> JPEG Q=100 -> ADEPT JPEG -> Compare (DSSIM)
+
 ## Contributors
 
 In alphabetical order:

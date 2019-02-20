@@ -84,7 +84,6 @@ HIGHCOMPRESSIONRATE="69"
 OUTPUTFILESUFFIX="_adept_compress"
 
 
-
 ###############################################################################
 # RUNTIME VARIABLES (usually do not require tuning by user)
 ###############################################################################
@@ -128,6 +127,33 @@ TILESIZE="autodetect"
 export LANG=C LC_NUMERIC=C LC_COLLATE=C
 
 
+###############################################################################
+# COMMAND LINE OPTIONS
+###############################################################################
+
+# Allow user to specify -c, -h or -o on the command line for the compression rate, high compression rate, and file suffix
+
+usage() {
+	echo "Usage: $0 [options] /path/to/jpeg/image.jpg
+Options (and defaults):
+	-c INT    Default compression rate ($DEFAULTCOMPRESSIONRATE)
+	-h INT    High compression rate ($HIGHCOMPRESSIONRATE)
+	-o SUFF   Output suffix ($OUTPUTFILESUFFIX)
+"
+	exit 1
+}
+
+while getopts "c:h:o:" optionName; do
+case "$optionName" in
+        c) DEFAULTCOMPRESSIONRATE="$OPTARG";;
+        h) HIGHCOMPRESSIONRATE="$OPTARG";;
+        o) OUTPUTFILESUFFIX="$OPTARG";;
+        \?) usage;;
+esac
+done
+shift `expr $OPTIND - 1`
+
+[ -z "$1" ] && usage
 
 ###############################################################################
 # MAIN PROGRAM
